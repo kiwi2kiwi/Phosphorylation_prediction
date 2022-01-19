@@ -1,9 +1,18 @@
 import math
 from pathlib import Path
+from Bio.PDB import *
+io = PDBIO()
+# PDB parser
+parser = PDBParser()
+# SeqIO parser (getting sequences)
+from Bio import SeqIO
+import os
+
 
 class Structure:
-    def __init__(self, name, phosphorylated_positions, phosphorylated):
+    def __init__(self, name, phosphorylated_positions, phosphorylated, chain):
         self.phosphorylated=[]
+        self.chain = chain
         self.phosphorylated.append(bool(phosphorylated))
         self.name = name
         self.phosphorylated_positions=[]
@@ -38,7 +47,7 @@ class Protein:
         self.protein_structures = {}
         self.id = id
 
-    def add_protein_structure(self, Structure):
+    def add_protein_structure(self, Structure, chain):
         if Structure.name in self.protein_structures:
             self.protein_structures[Structure.name].add_new_position(bool(Structure.phosphorylated), Structure.phosphorylated_positions[0])#phosphorylated.append(Structure.phosphorylated)
 #            self.protein_structures[Structure.name].phosphorylated_positions.append(Structure.phosphorylated_positions)
@@ -72,20 +81,24 @@ def structure_id_association(file):
     with open(file) as f:
         for line in f.readlines():
             line = line.split()
+            pchain = line[2]
+            wchain = line[7]
             pP = line[1]
             wP = line[6]
             id = line[4]
-            pP_Structure = Structure(pP, line[3], True)
+            #if chain == "K" and id == "6b5b":
+             #   print("stop")
+            pP_Structure = Structure(pP, line[3], True,pchain)
             pP_Structure.add_protein_id(id)
-            wP_Structure = Structure(wP, line[8], False)
+            wP_Structure = Structure(wP, line[8], False,wchain)
             wP_Structure.add_protein_id(id)
             if id in Protein_list:
-                Protein_list[id].add_protein_structure(pP_Structure)
-                Protein_list[id].add_protein_structure(wP_Structure)
+                Protein_list[id].add_protein_structure(pP_Structure,pchain)
+                Protein_list[id].add_protein_structure(wP_Structure,wchain)
             else:
                 new_Protein = Protein(id)
-                new_Protein.add_protein_structure(pP_Structure)
-                new_Protein.add_protein_structure(wP_Structure)
+                new_Protein.add_protein_structure(pP_Structure,pchain)
+                new_Protein.add_protein_structure(wP_Structure,wchain)
                 Protein_list[id] = new_Protein
 
 structure_id_association(ser90_paired)
@@ -99,6 +112,18 @@ for name, Protein in Protein_list.items():
     for structu_name, structu in Protein.protein_structures.items():
         Protein_structure_dict[structu_name]=name
 
+def remove_except_CA(structure, true_chain):
+    for model in structure:
+        for chain in model:
+            if chain.id != true_chain:
+                model.detach_child(chain.id)
+        for chain in model:
+            for residue in chain:
+                keys = list(residue.child_dict.keys())
+                for atom in keys:
+                    if atom != "CA":
+                        residue.detach_child(atom)
+    return structure
 
 # extracts information from the list_wp.txt file
 "3kvw	A	159.0	28.635	-33.739	7.191"
@@ -148,11 +173,12 @@ def path_to_structure():
 path_to_structure()
 
 
-from shutil import copy2
 import math
+iopfile = ""
 def copy_least_phosphorylated_to_pdb_collection():
     iop_file = WD / "phos_info" / "info_on_phos.txt"
     with open(iop_file, 'w') as iop:
+        iopfile = iop
         for i in Protein_list.values():
             best_count = 0
             best_file = "none"
@@ -166,10 +192,17 @@ def copy_least_phosphorylated_to_pdb_collection():
                     best_count = len(s.phosphorylated) - sum(s.phosphorylated)
                     best_s = s
             dst = WD / 'pdb_collection' / Path(best_file).name
-            print(dst)
             if Path(best_file).name == "not set":
                 print("stop")
-            copy2(best_file, dst)
+
+            strt = parser.get_structure(best_s.name, best_s.location)
+            strt = remove_except_CA(strt,best_s.chain)
+            io.set_structure(strt)
+            io.save(str(WD / "pdb_collection" / (strt.id + ".txt")), preserve_atom_numbering=True)
+
+            print(dst)
+
+#            copy2(best_file, dst)
             linewrite_p = ""
             for p in best_s.phosphorylated:
                 linewrite_p += "," + str(float(p))
@@ -180,13 +213,121 @@ def copy_least_phosphorylated_to_pdb_collection():
             linewrite_pos = linewrite_pos[1:]
 
             # this file consists of the structure name, if residues are phosphorylated in this structure = 1, or where we know residues are phosphorylated in other structures = 0, and their positions
-            iop.write((best_s.name+ "\t"+ linewrite_p+ "\t"+ linewrite_pos + "\n"))
-    iop.close()
+            iop.write((best_s.name + "\t" + linewrite_p + "\t" + linewrite_pos + "\t" + best_s.chain + "\n"))
 
 
 copy_least_phosphorylated_to_pdb_collection()
 import pickle as pkl
 pkl.dump(protein_files_of_wp, open((WD / "phos_info" / "structure_locations.txt"), "wb"))
+
+# add pdb files to the pdb_collection after removing the phosphate group and the other chains
+# SEP (S)	phosphoserine
+# TPO (T)	phosphothreonine
+# PTR (Y)	O-phosphotyrosine
+# remo
+
+
+pStruc_dict={}
+class pStruc:
+    def __init__(self, name, chain, position):
+        self.name = name
+        self.chain = chain
+        self.position=[]
+        self.position.append(position)
+
+
+ser90_pP = WD / 'data' / "ser90" / "pP" / "list_pP.txt"
+thr90_pP = WD / 'data' / "thr90" / "pP" / "list_pP.txt"
+tyr90_pP = WD / 'data' / "tyr90" / "pP" / "list_pP.txt"
+
+def download_pdbs(file_path):
+    with open(file_path) as file:
+        for line in file.readlines():
+            spltted = line.split()
+            id = spltted[0]
+            if id not in pStruc_dict:
+                pStruc_dict[id]=pStruc(id,spltted[1],spltted[2])
+            else:
+                pStruc_dict[id].position.append(spltted[2])
+download_pdbs(ser90_pP)
+download_pdbs(thr90_pP)
+download_pdbs(tyr90_pP)
+
+from Bio.PDB import PDBList
+pdbl = PDBList()
+downloaded=[]
+for file in os.listdir((WD/"pdb_collection_pP")):
+#    print(file)
+    downloaded.append(file[3:-4])
+downloaded = set(downloaded)
+to_download=set(pStruc_dict.keys()).difference(downloaded)
+
+pdbl.download_pdb_files(pdb_codes=to_download, obsolete=False, pdir=(WD/"pdb_collection_pP"), file_format="pdb", overwrite=False)
+
+
+def modifypdbs(pdb_dir):
+    for file in os.listdir(pdb_dir):
+        structure = parser.get_structure(file[3:-4], (WD/"pdb_collection_pP"/file))
+        phospho_pos = set()
+        for model in structure:
+            for chain in model:
+                for residue in chain:
+                    for atom in residue:
+                        if atom.element=="H":
+                            residue.detach_child(atom.id)
+                    if "P" in residue and (residue.resname == "SEP" or residue.resname == "PTO" or residue.resname == "PTR"):
+                        residue.detach_child("P")
+                        try:
+                            residue.detach_child("O1P")
+                        except:
+                            print("haha funny exception")
+                        try:
+                            residue.detach_child("O2P")
+                        except:
+                            print("haha funny exception")
+                        try:
+                            residue.detach_child("O3P")
+                        except:
+                            print("haha funny exception")
+                        if residue.resname == "SEP":
+                            residue.resname == "SER"
+                            resid = list(residue.id)
+                            resid[0] =""
+                            residue.id = tuple(resid)
+                        if residue.resname == "TPO":
+                            residue.resname == "THR"
+                            resid = list(residue.id)
+                            resid[0] =""
+                            residue.id = tuple(resid)
+                        if residue.resname == "PTR":
+                            residue.resname == "TYR"
+                            resid = list(residue.id)
+                            resid[0] =""
+                            residue.id = tuple(resid)
+                        phospho_pos.add(residue.id[1])
+        structure = remove_except_CA(structure,pStruc_dict[structure.id].chain)
+        linewrite_pos = ""
+        for pos in phospho_pos:
+            linewrite_pos += "," + str(pos)
+        linewrite_p = ""
+        for p in phospho_pos:
+            linewrite_p += ",1"
+        linewrite_p = linewrite_p[1:]
+        linewrite_pos = linewrite_pos[1:]
+
+
+        iop_file = WD / "phos_info" / "info_on_phos.txt"
+        with open(iop_file, 'a') as iop:
+            iopfile = iop
+
+            iopfile.write((structure.id+ "\t"+ linewrite_p+ "\t"+ linewrite_pos + "\n"))
+        io.set_structure(structure)
+        io.save(str(WD/"pdb_collection"/(structure.id+".txt")), preserve_atom_numbering = True)
+
+# removes all phosphates from the atoms
+modifypdbs(WD/"pdb_collection_pP")
+
+
 
 print(WD)
 
