@@ -123,6 +123,10 @@ def remove_except_CA(structure, true_chain):
 #            if chain.id != true_chain:
 #                model.detach_child(chain.id)
         for chain in model:
+            res_keys = list(chain.child_dict.keys())
+            for res in res_keys:
+                if res[1] <= 0:
+                    chain.detach_child(res)
             for residue in chain:
                 keys = list(residue.child_dict.keys())
                 for atom in keys:
@@ -277,6 +281,7 @@ def modifypdbs(pdb_dir):
     for file in os.listdir(pdb_dir):
         structure = parser.get_structure(file[3:-4], (WD/"pdb_collection_pP"/file))
         phospho_pos = set()
+        structure = remove_except_CA(structure, pStruc_dict[structure.id].chain)
         model_max_dict = {}
         for model in structure:
             model_max_dict[model.id] = 0
@@ -332,7 +337,7 @@ def modifypdbs(pdb_dir):
         for i in clist:
             if len(structure.child_dict.keys()) > 1:
                 structure.detach_child(i)
-        structure = remove_except_CA(structure,pStruc_dict[structure.id].chain)
+
         linewrite_pos = ""
         for pos in phospho_pos:
             linewrite_pos += "," + str(pos)

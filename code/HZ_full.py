@@ -89,10 +89,12 @@ embedder.embed("MLSDMLKSMFLKS").shape
 
 def get_sequence(residues):
     sequence = ''
+    index_list = []
     for res in residues:
         sequence += STANDARD_AMINO_ACIDS[res.get_resname()]
+        index_list.append(res.id[1])
 
-    return sequence
+    return sequence,index_list
 
 
 # Check if a residue is a ligand or not
@@ -211,11 +213,15 @@ def get_embeddings(data_folder, file, emb_name):
     # Get all residues
     residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
     # Get the protein sequence
-    sequence = get_sequence(residues)
+    sequence,index_list = get_sequence(residues)
 
     # Get the sequence embeddings
     #embedding1 = EMBEDDERS["onehot"].embed(sequence)
     embedding = EMBEDDERS[emb_name].embed(sequence)
+    embedding = pd.DataFrame(sequence)
+    embedding[""] = index_list
+    embedding = embedding.set_index("")
+    embedding.index.name = None
 
     if emb_name == "onehot":
         embedding = embedding_twister(sequence, emb_name)
@@ -250,7 +256,7 @@ def get_sequence_from_file(data_folder, file):
     # Get all residues
     residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
     # Get the protein sequence
-    return get_sequence(residues)
+    return get_sequence(residues)[0]
 
 
 # ## Dataset
@@ -311,7 +317,7 @@ def zero_ca_preparation():
     print(n, "Total files processed")
     print(len(zero_ca), "have some res of 0 CA")
     pdb_files = n
-pdb_files = 124
+pdb_files = 360
 # "In[78]:"
 
 
@@ -468,21 +474,14 @@ test_seq = os.path.join("D:/data", dataset, "test_data", "sequences")
 # ### Graphs
 
 # "In[21]:"
-
-
 train_graphs = os.path.join("../ML_data", "train_data", "graphs")
 val_graphs = os.path.join("../ML_data", "val_data", "graphs")
 test_graphs = os.path.join("../ML_data", "test_data", "graphs")
-
 # "In[330]:"
-
-
-# make_folder(train_graphs)
-# make_folder(val_graphs)
-# make_folder(test_graphs)
+make_folder(train_graphs)
+make_folder(val_graphs)
+make_folder(test_graphs)
 # "In[336]:"
-
-
 print(f"Training graphs : {n_train} elements")
 print(f"Validation graphs : {n_val} elements")
 print(f"Testing graphs : {n_test} elements")
@@ -552,7 +551,7 @@ def generate_graphs():
     #    batch_number += 1
 
 
-generate_graphs()
+# generate_graphs()
 
 # ### Embeddings
 
@@ -580,7 +579,7 @@ print(f"Testing embeddings : {n_test} elements")
 
 
 # Create embeddings
-def holo4k_emb(n,set_type,index_set,save_path):
+def holo4k_emb(n,index_set,set_type,save_path):
     a = n * training_set_intervall_size
     b = (n + 1) * training_set_intervall_size
     print(f"{set_type} embeddings : from {a} to {b}")
