@@ -25,11 +25,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # supplements from previous script
-train_graphs = os.path.join("../ML_data", "train_data", "graphs")
-val_graphs = os.path.join("../ML_data", "val_data", "graphs")
+#train_graphs = os.path.join("../ML_data", "train_data", "graphs")
+#val_graphs = os.path.join("../ML_data", "val_data", "graphs")
 emb_name = "glove"
-train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
-val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
+#train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
+#val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
 
 
 # Load the graphs
@@ -38,15 +38,24 @@ import pickle
 
 TRAIN_GRAPHS = {}
 VAL_GRAPHS = {}
-print(train_graphs)
+TEST_GRAPHS = {}
 WD = Path(__file__).resolve().parents[1]
 train_graphs = WD / "ML_data" / "train_data" / "graphs"
+val_graphs = WD / "ML_data" / "val_data" / "graphs"
+test_graphs = WD / "ML_data" / "test_data" / "graphs"
+
+train_embs = WD / "ML_data" / "train_data" / "embeddings"
+val_embs = WD / "ML_data" / "val_data" / "embeddings"
+test_embs = WD / "ML_data" / "test_data" / "embeddings"
 for file in os.listdir(train_graphs):
     TRAIN_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(train_graphs, file), "rb"))
 print(f"Training graphs loaded : {len(TRAIN_GRAPHS)} items")
 for file in os.listdir(val_graphs):
     VAL_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(val_graphs, file), "rb"))
 print(f"Validation graphs loaded : {len(VAL_GRAPHS)} items")
+for file in os.listdir(test_graphs):
+    TEST_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(test_graphs, file), "rb"))
+print(f"Testing graphs loaded : {len(TEST_GRAPHS)} items")
 
 # "In[26]:"
 
@@ -69,6 +78,7 @@ import pickle
 
 TRAIN_EMBS = {}
 VAL_EMBS = {}
+TEST_EMBS = {}
 for file in os.listdir(train_embs):
     TRAIN_EMBS[file[:-2]] = pickle.load(open(os.path.join(train_embs, file), "rb"))
 
@@ -77,6 +87,11 @@ for file in os.listdir(val_embs):
     VAL_EMBS[file[:-2]] = pickle.load(open(os.path.join(val_embs, file), "rb"))
 
 print(f"Validation embeddings loaded : {len(VAL_EMBS)} items")
+
+for file in os.listdir(test_embs):
+    TEST_EMBS[file[:-2]] = pickle.load(open(os.path.join(test_embs, file), "rb"))
+
+print(f"Testing embeddings loaded : {len(TEST_EMBS)} items")
 
 # "In[228]:"
 

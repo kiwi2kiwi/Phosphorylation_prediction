@@ -114,9 +114,14 @@ for name, Protein in Protein_list.items():
 
 def remove_except_CA(structure, true_chain):
     for model in structure:
-        for chain in model:
-            if chain.id != true_chain:
-                model.detach_child(chain.id)
+        clist = list(model.child_dict.keys())
+        clist.remove(true_chain)
+        for i in clist:
+            if len(model.child_dict.keys()) > 1:
+                model.detach_child(i)
+#        for chain in model:
+#            if chain.id != true_chain:
+#                model.detach_child(chain.id)
         for chain in model:
             for residue in chain:
                 keys = list(residue.child_dict.keys())
@@ -196,6 +201,8 @@ def copy_least_phosphorylated_to_pdb_collection():
                 print("stop")
 
             strt = parser.get_structure(best_s.name, best_s.location)
+            sequence_start = strt.child_list[0].child_list[0].child_list[0].id[1]
+            sequence_end = strt.child_list[0].child_list[0].child_list[-1].id[1]
             strt = remove_except_CA(strt,best_s.chain)
             io.set_structure(strt)
             io.save(str(WD / "pdb_collection" / (strt.id + ".txt")), preserve_atom_numbering=True)
@@ -213,7 +220,7 @@ def copy_least_phosphorylated_to_pdb_collection():
             linewrite_pos = linewrite_pos[1:]
 
             # this file consists of the structure name, if residues are phosphorylated in this structure = 1, or where we know residues are phosphorylated in other structures = 0, and their positions
-            iop.write((best_s.name + "\t" + linewrite_p + "\t" + linewrite_pos + "\t" + best_s.chain + "\n"))
+            iop.write((best_s.name + "\t" + linewrite_p + "\t" + linewrite_pos + "\t" + best_s.chain  + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\n"))
 
 
 copy_least_phosphorylated_to_pdb_collection()
@@ -264,47 +271,67 @@ to_download=set(pStruc_dict.keys()).difference(downloaded)
 
 pdbl.download_pdb_files(pdb_codes=to_download, obsolete=False, pdir=(WD/"pdb_collection_pP"), file_format="pdb", overwrite=False)
 
-
+import warnings
+warnings.filterwarnings("ignore")
 def modifypdbs(pdb_dir):
     for file in os.listdir(pdb_dir):
         structure = parser.get_structure(file[3:-4], (WD/"pdb_collection_pP"/file))
         phospho_pos = set()
+        model_max_dict = {}
         for model in structure:
+            model_max_dict[model.id] = 0
             for chain in model:
                 for residue in chain:
-                    for atom in residue:
-                        if atom.element=="H":
-                            residue.detach_child(atom.id)
-                    if "P" in residue and (residue.resname == "SEP" or residue.resname == "PTO" or residue.resname == "PTR"):
-                        residue.detach_child("P")
-                        try:
-                            residue.detach_child("O1P")
-                        except:
-                            print("haha funny exception")
-                        try:
-                            residue.detach_child("O2P")
-                        except:
-                            print("haha funny exception")
-                        try:
-                            residue.detach_child("O3P")
-                        except:
-                            print("haha funny exception")
+#                    for atom in residue:
+#                        if atom.element=="H":
+#                            residue.detach_child(atom.id)
+                    if "P" in residue and (residue.resname == "SER" or residue.resname == "TYR" or residue.resname == "THR"):
+                        phospho_pos.add(residue.id[1])
+                        model_max_dict[model.id] = model_max_dict[model.id]+1
+                        print(str(structure.id) + " hit at " + str(residue.id[1]) + " model " + str(model.id))
+                    if (residue.resname == "SEP" or residue.resname == "TPO" or residue.resname == "PTR"):
+                        # commented because they get removed anyway
+                        #try:
+                        #    residue.detach_child("P")
+                        #except:
+                        #    print("haha funny exception")
+                        #try:
+                        #    residue.detach_child("O1P")
+                        #except:
+                        #    print("haha funny exception")
+                        #try:
+                        #    residue.detach_child("O2P")
+                        #except:
+                        #    print("haha funny exception")
+                        #try:
+                        #    residue.detach_child("O3P")
+                        #except:
+                        #    print("haha funny exception")
                         if residue.resname == "SEP":
-                            residue.resname == "SER"
+                            residue.resname = "SER"
                             resid = list(residue.id)
                             resid[0] =""
                             residue.id = tuple(resid)
                         if residue.resname == "TPO":
-                            residue.resname == "THR"
+                            residue.resname = "THR"
                             resid = list(residue.id)
                             resid[0] =""
                             residue.id = tuple(resid)
                         if residue.resname == "PTR":
-                            residue.resname == "TYR"
+                            residue.resname = "TYR"
                             resid = list(residue.id)
                             resid[0] =""
                             residue.id = tuple(resid)
                         phospho_pos.add(residue.id[1])
+                        model_max_dict[model.id] = model_max_dict[model.id] + 1
+                        print(str(structure.id)+" hit at "+ str(residue.id[1]) + " model " + str(model.id))
+        print(model_max_dict)
+        maxhit = max(model_max_dict, key=model_max_dict.get)
+        clist = list(structure.child_dict.keys())
+        clist.remove(maxhit)
+        for i in clist:
+            if len(structure.child_dict.keys()) > 1:
+                structure.detach_child(i)
         structure = remove_except_CA(structure,pStruc_dict[structure.id].chain)
         linewrite_pos = ""
         for pos in phospho_pos:
@@ -315,12 +342,13 @@ def modifypdbs(pdb_dir):
         linewrite_p = linewrite_p[1:]
         linewrite_pos = linewrite_pos[1:]
 
-
+        sequence_start = structure.child_list[0].child_list[0].child_list[0].id[1]
+        sequence_end = structure.child_list[0].child_list[0].child_list[-1].id[1]
         iop_file = WD / "phos_info" / "info_on_phos.txt"
         with open(iop_file, 'a') as iop:
             iopfile = iop
 
-            iopfile.write((structure.id+ "\t"+ linewrite_p+ "\t"+ linewrite_pos + "\n"))
+            iopfile.write((structure.id+ "\t"+ linewrite_p+ "\t"+ linewrite_pos + "\t" + pStruc_dict[structure.id].chain + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\n"))
         io.set_structure(structure)
         io.save(str(WD/"pdb_collection"/(structure.id+".txt")), preserve_atom_numbering = True)
 

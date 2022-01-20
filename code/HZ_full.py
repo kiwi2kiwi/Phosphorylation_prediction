@@ -44,13 +44,13 @@ from Bio import SeqIO
 
 # Bio embedders
 
-# # Onehot embedding
+# # Onehot embedding working
 # from bio_embeddings.embed.one_hot_encoding_embedder import OneHotEncodingEmbedder
 
 # # SeqVec
 # from bio_embeddings.embed.seqvec_embedder import SeqVecEmbedder
 
-# # Glove
+# # Glove working
 from bio_embeddings.embed.glove_embedder import GloveEmbedder
 
 # # Word2Vec
@@ -408,12 +408,19 @@ def zero_ca():
 
 # Define training and validation data
 n_data = len(os.listdir(data_folder))
-n_train = int(0.8 * n_data)
 np.random.seed(16)
-train_indices = np.random.choice(n_data, n_train, replace=False)
+indices = np.arange(n_data)
+np.random.shuffle(indices)
+n_train = int(0.7 * n_data)
+n_val = int(0.2 * n_data)
+n_test = int(n_data-n_val-n_train)
+train_indices = indices[:n_train]
+val_indices = indices[n_train:n_train+n_val]
+test_indices = indices[n_train+n_val:]
 
 trainset = [os.listdir(data_folder)[i] for i in train_indices]
-valset = [os.listdir(data_folder)[i] for i in range(n_data) if i not in train_indices]
+valset = [os.listdir(data_folder)[i] for i in val_indices]
+testset = [os.listdir(data_folder)[i] for i in test_indices]
 
 
 def make_folder(folder):
@@ -438,6 +445,7 @@ warnings.filterwarnings("ignore")
 
 train_seq = os.path.join("D:/data", dataset, "train_data", "sequences")
 val_seq = os.path.join("D:/data", dataset, "val_data", "sequences")
+test_seq = os.path.join("D:/data", dataset, "test_data", "sequences")
 
 # "In[18]:"
 
@@ -464,22 +472,45 @@ val_seq = os.path.join("D:/data", dataset, "val_data", "sequences")
 
 train_graphs = os.path.join("../ML_data", "train_data", "graphs")
 val_graphs = os.path.join("../ML_data", "val_data", "graphs")
+test_graphs = os.path.join("../ML_data", "test_data", "graphs")
 
 # "In[330]:"
 
 
 # make_folder(train_graphs)
 # make_folder(val_graphs)
-
+# make_folder(test_graphs)
 # "In[336]:"
 
 
 print(f"Training graphs : {n_train} elements")
-print(f"Validation graphs : {n_data - n_train} elements")
+print(f"Validation graphs : {n_val} elements")
+print(f"Testing graphs : {n_test} elements")
 
 training_set_intervall_size = 20
 
+
+
+
+
 # Create graphs
+
+def holo4k_graph(n,index_set,set_type,save_path):
+    a = n * training_set_intervall_size
+    b = (n + 1) * training_set_intervall_size
+    print(f"{set_type} graphs : from {a} to {b}")
+    i = a
+    for file in index_set[a:b]:
+        i += 1
+        print(f"processing file {i}  ", file, "  ....")
+        # get graph and labels
+        results = get_graph(data_folder, file)
+        pickle.dump(results, open(os.path.join(save_path, file[:-4] + ".p"), "wb"))
+
+
+
+
+
 def holo4k_train(n):
     a = n * training_set_intervall_size
     b = (n + 1) * training_set_intervall_size
@@ -509,16 +540,19 @@ def generate_graphs():
     # "In[339]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
-        holo4k_train(batch_number)
+        #holo4k_train(batch_number)
+        holo4k_graph(batch_number, trainset, "Training", train_graphs)
+        holo4k_graph(batch_number, valset, "Validation", val_graphs)
+        holo4k_graph(batch_number, testset, "Testing", test_graphs)
         batch_number += 1
     # "In[340]:"
-    batch_number = 0
-    while pdb_files > (batch_number * training_set_intervall_size):
-        holo4k_val(batch_number)
-        batch_number += 1
+    #batch_number = 0
+    #while pdb_files > (batch_number * training_set_intervall_size):
+    #    holo4k_val(batch_number)
+    #    batch_number += 1
 
 
-# generate_graphs()
+generate_graphs()
 
 # ### Embeddings
 
@@ -528,21 +562,39 @@ def generate_graphs():
 emb_name = "glove"
 train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
 val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
+test_embs = os.path.join("../ML_data", "test_data", "embeddings", emb_name)
 
 # "In[349]:"
 
 
 make_folder(train_embs)
 make_folder(val_embs)
+make_folder(test_embs)
 
 # "In[350]:"
 
 
 print(f"Training embeddings : {n_train} elements")
-print(f"Validation embeddings : {n_data - n_train} elements")
+print(f"Validation embeddings : {n_val} elements")
+print(f"Testing embeddings : {n_test} elements")
 
 
 # Create embeddings
+def holo4k_emb(n,set_type,index_set,save_path):
+    a = n * training_set_intervall_size
+    b = (n + 1) * training_set_intervall_size
+    print(f"{set_type} embeddings : from {a} to {b}")
+    i = a
+    for file in index_set[a:b]:
+        i += 1
+        print(f"processing file {i}  ", file, "  ....")
+        # Get embeddings
+        results = get_embeddings(data_folder, file, emb_name)
+        pickle.dump(results, open(os.path.join(save_path, file[:-4] + ".p"), "wb"))
+
+
+
+
 def holo4k_train_emb(n):
     a = n * training_set_intervall_size
     b = (n + 1) * training_set_intervall_size
@@ -572,13 +624,16 @@ def create_embeddings():
     # "In[351]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
-        holo4k_train_emb(batch_number)
+        holo4k_emb(batch_number, trainset, "Training", train_embs)
+        holo4k_emb(batch_number, valset, "Validation", val_embs)
+        holo4k_emb(batch_number, testset, "Testing", test_embs)
+        #holo4k_train_emb(batch_number)
         batch_number += 1
 
-    batch_number = 0
-    while pdb_files > (batch_number * training_set_intervall_size):
-        holo4k_val_emb(batch_number)
-        batch_number += 1
+    #batch_number = 0
+    #while pdb_files > (batch_number * training_set_intervall_size):
+    #    holo4k_val_emb(batch_number)
+    #    batch_number += 1
 
 create_embeddings()
 
