@@ -6,7 +6,6 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import pandas as pd
 
-from Bio.PDB import *
 # import spektral
 import pickle
 import dgl
@@ -17,12 +16,13 @@ import dgl.nn
 import scipy
 import shutil
 
-#import bio_embeddings.embed # yannick
-from bio_embeddings.embed import OneHotEncodingEmbedder # yannick
 #from code.File_extractor import WD
 
 # help(bio_embeddings.embed)
 
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # Amino acid codons
 STANDARD_AMINO_ACIDS={'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C', 'GLN':'Q', 'GLU':'E',
@@ -35,6 +35,9 @@ ACs=list(STANDARD_AMINO_ACIDS.keys())
 AC_letters=list(STANDARD_AMINO_ACIDS.values())
 
 
+
+from Bio.PDB import *
+
 # PDB parser
 parser = PDBParser()
 
@@ -46,6 +49,7 @@ from Bio import SeqIO
 
 # # Onehot embedding working
 # from bio_embeddings.embed.one_hot_encoding_embedder import OneHotEncodingEmbedder
+from bio_embeddings.embed import OneHotEncodingEmbedder # yannick
 
 # # SeqVec
 # from bio_embeddings.embed.seqvec_embedder import SeqVecEmbedder
@@ -103,26 +107,37 @@ def is_ligand(res):
 
 
 # Check if 2 residues are connected  (2 residues are connected if their alpha carbon atoms are close enough)
-def are_connected(res1, res2, th):
+# recieves a numpy 2D array (A), unpacked residue list of the residues, and a threshold
+def are_connected(A, residues, th):
+    for i_num, i in enumerate(residues):
+        atm1 = i.child_list[0].get_coord()
+        for j_num, j in enumerate(residues):
+            atm2 = j.child_list[0].get_coord()
+            if abs(atm1[0] - atm2[0]) <= th:
+                if abs(atm1[1] - atm2[1]) <= th:
+                    if abs(atm1[2] - atm2[2]) <= th:
+                        distance = np.linalg.norm(atm1 - atm2)
+                        if distance < th:
+                            A[i_num, j_num] = 1
+    return A
     # Check all atoms in the first residue and get their coordinates
-    for atom1 in res1.get_unpacked_list():
-        coord1 = atom1.get_coord()
-        # if some atom is a central carbon atom take its coordinates
-        if atom1.get_name() == "CA":
-            break
-
-    for atom2 in res2.get_unpacked_list():
-        coord2 = atom2.get_coord()
-        # if some atom is a central carbon atom take its coordinates
-        if atom2.get_name() == "CA":
-            break
+    # for atom1 in res1.get_unpacked_list():
+    #     coord1 = atom1.get_coord()
+    #     # if some atom is a central carbon atom take its coordinates
+    #     if atom1.get_name() == "CA":
+    #         break
+    #
+    # for atom2 in res2.get_unpacked_list():
+    #     coord2 = atom2.get_coord()
+    #     # if some atom is a central carbon atom take its coordinates
+    #     if atom2.get_name() == "CA":
+    #         break
 
     # Check distance
-    distance = np.linalg.norm(coord1 - coord2)
-    if distance < th:
-        return 1
+    # distance = np.linalg.norm(coord1 - coord2)
+    # if distance < th:
+    #     return 1
 
-    return 0
 
 
 # Check ligandability of a residue
@@ -165,44 +180,13 @@ def get_graph(data_folder, file):
     # Adjacency matrix at the residue level
     n_res = len(residues)
     A = np.zeros((n_res, n_res))
-    for i in range(n_res):
-        for j in range(n_res):
-            A[i, j] = are_connected(residues[i], residues[j], th=6)  # Threshold = 6 Angstroms
-
-    # yannick
-    #pth = label_paths[file[:-4]]
-    #with open(pth,"r") as pdbfile:
-    #    lns = pdbfile.readlines()
-    #    for ln in lns:
-    #        if ln[:4]=="ATOM":
-    #            start = float(ln.split()[5])
-    #            pdbfile.close()
-    #            break
+    A = are_connected(A, residues, th=6)  # Threshold = 6 Angstroms
     labels = np.zeros((n_res,1))
-    counter = 0
-    for residue_structured in residues:
-        if label_dict[file[:-4]].__contains__(float(residue_structured.id[1])):
-            labels[counter] = 1
-        counter += 1
-    #indices_to_change = [ind-start for ind in label_dict[file[:-4]]]
-    #np.put(labels, indices_to_change, 1)
 
-    # # Get all atoms of all ligands
-    # ligs_atoms = []
-    # n_ligands = 0
-    # for res in structure.get_residues():
-    #     if is_ligand(res):
-    #         n_ligands += 1
-    #         ligs_atoms += res.get_unpacked_list()
-    #
-    ## Labels represent the ligandability of the residue
-    #n_res = len(residues)
-    #labels = np.zeros((n_res, 1))
-    #for i in range(n_res):
-    #    labels[i] = is_ligandable(residues[i], ligs_atoms, th=4)  # Threshold = 4 Angstroms
-    #
-    #print(f"Number of ligands : {n_ligands}")
-    #print(int(np.sum(labels)), " of ", labels.shape[0], ' residue are labeled as 1')
+    for idx, residue_structured in enumerate(residues):
+        if label_dict[file[:-4]].__contains__(float(residue_structured.id[1])):
+            labels[idx] = 1
+
     return scipy.sparse.csr_matrix(A), labels
 
 
@@ -218,7 +202,7 @@ def get_embeddings(data_folder, file, emb_name):
     # Get the sequence embeddings
     #embedding1 = EMBEDDERS["onehot"].embed(sequence)
     embedding = EMBEDDERS[emb_name].embed(sequence)
-    embedding = pd.DataFrame(sequence)
+    embedding = pd.DataFrame(embedding)
     embedding[""] = index_list
     embedding = embedding.set_index("")
     embedding.index.name = None
@@ -240,10 +224,6 @@ with open(WD / "phos_info" / "info_on_phos.txt","r") as iop:
         label_dict[line[0]] = locations
 
 label_paths = pkl.load(open(WD / "phos_info" / "structure_locations.txt", "rb"))
-#for key, val in label_paths.items():
-#    get_graph((WD/"pdb_collection"), ((key +".txt")))
-#graph = get_graph((WD/"pdb_collection"), (("4fbn" +".txt")))
-
 
 
 # "In[5]:"
@@ -271,11 +251,6 @@ dataset = "holo4k"
 data_folder = './p2rank-datasets/' + dataset
 data_folder = "../pdb_collection" # yannick
 # "In[15]:"
-
-
-import warnings
-
-warnings.filterwarnings("ignore")
 
 
 # ## Dealing with residues with zero alpha carbon atoms
@@ -369,43 +344,6 @@ def zero_ca():
 # zero_ca_preparation()
 # zero_ca()
 
-# ## Total number of ligands
-#
-## "In[174]:"
-#
-#
-#LIGANDS = {}
-#for dataset in datasets:
-#    print(dataset)
-#    LIGANDS[dataset] = []
-#    data_folder = './p2rank-datasets/' + dataset
-#    data_folder = "../pdb_collection" # yannick
-#    n = 0
-#    for file in os.listdir(data_folder):
-#        prot_file = os.path.join(data_folder, file)
-#        structure = parser.get_structure("My_protein", prot_file)
-#        for lig in structure.get_residues():
-#            if is_ligand(lig):
-#                LIGANDS[dataset].append(lig.get_resname())
-#        n += 1
-#        if n % 20 == 0:
-#            print(n, "files processed")
-
-## "In[175]:"
-#
-#
-#for dataset in datasets:
-#    print(dataset, len(LIGANDS[dataset]), "ligands")
-#    ligs = np.unique(LIGANDS[dataset], return_counts=True)
-#    ligs = dict(zip(ligs[0], ligs[1]))
-#    max_lig = ""
-#    max_n = 0
-#    for lig, n in ligs.items():
-#        if n > max_n:
-#            max_n = n
-#            max_lig = lig
-#    print("Most frequent ligand ", max_lig, ":", max_n, "times")
-#    print("_____________________________________________")
 
 # ## Create training and validation sets
 
@@ -507,51 +445,17 @@ def holo4k_graph(n,index_set,set_type,save_path):
         pickle.dump(results, open(os.path.join(save_path, file[:-4] + ".p"), "wb"))
 
 
-
-
-
-def holo4k_train(n):
-    a = n * training_set_intervall_size
-    b = (n + 1) * training_set_intervall_size
-    print(f"Training graphs : from {a} to {b}")
-    i = a
-    for file in trainset[a:b]:
-        i += 1
-        print(f"processing file {i}  ", file, "  ....")
-        # get graph and labels
-        results = get_graph(data_folder, file)
-        pickle.dump(results, open(os.path.join(train_graphs, file[:-4] + ".p"), "wb"))
-
-
-def holo4k_val(n):
-    a = n * training_set_intervall_size
-    b = (n + 1) * training_set_intervall_size
-    print(f"Validation graphs : from {a} to {b}")
-    i = a
-    for file in valset[a:b]:
-        i += 1
-        print(f"processing file {i} ", file, "  ....")
-        # Parse the protein file
-        results = get_graph(data_folder, file)
-        pickle.dump(results, open(os.path.join(val_graphs, file[:-4] + ".p"), "wb"))
-
 def generate_graphs():
     # "In[339]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
-        #holo4k_train(batch_number)
         holo4k_graph(batch_number, trainset, "Training", train_graphs)
         holo4k_graph(batch_number, valset, "Validation", val_graphs)
         holo4k_graph(batch_number, testset, "Testing", test_graphs)
         batch_number += 1
-    # "In[340]:"
-    #batch_number = 0
-    #while pdb_files > (batch_number * training_set_intervall_size):
-    #    holo4k_val(batch_number)
-    #    batch_number += 1
 
 
-# generate_graphs()
+generate_graphs()
 
 # ### Embeddings
 
@@ -592,33 +496,6 @@ def holo4k_emb(n,index_set,set_type,save_path):
         pickle.dump(results, open(os.path.join(save_path, file[:-4] + ".p"), "wb"))
 
 
-
-
-def holo4k_train_emb(n):
-    a = n * training_set_intervall_size
-    b = (n + 1) * training_set_intervall_size
-    print(f"Training embeddings : from {a} to {b}")
-    i = a
-    for file in trainset[a:b]:
-        i += 1
-        print(f"processing file {i}  ", file, "  ....")
-        # Get embeddings
-        results = get_embeddings(data_folder, file, emb_name)
-        pickle.dump(results, open(os.path.join(train_embs, file[:-4] + ".p"), "wb"))
-
-
-def holo4k_val_emb(n):
-    a = n * training_set_intervall_size
-    b = (n + 1) * training_set_intervall_size
-    print(f"Validation embeddings : from {a} to {b}")
-    i = a
-    for file in valset[a:b]:
-        i += 1
-        print(f"processing file {i} ", file, "  ....")
-        # Get embeddings
-        results = get_embeddings(data_folder, file, emb_name)
-        pickle.dump(results, open(os.path.join(val_embs, file[:-4] + ".p"), "wb"))
-
 def create_embeddings():
     # "In[351]:"
     batch_number = 0
@@ -626,13 +503,7 @@ def create_embeddings():
         holo4k_emb(batch_number, trainset, "Training", train_embs)
         holo4k_emb(batch_number, valset, "Validation", val_embs)
         holo4k_emb(batch_number, testset, "Testing", test_embs)
-        #holo4k_train_emb(batch_number)
         batch_number += 1
-
-    #batch_number = 0
-    #while pdb_files > (batch_number * training_set_intervall_size):
-    #    holo4k_val_emb(batch_number)
-    #    batch_number += 1
 
 create_embeddings()
 

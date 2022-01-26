@@ -50,8 +50,8 @@ for file in os.listdir((WD/"demo")):
                         residue.id = tuple(resid)
                     phospho_pos.add(residue.id[1])
         break
-io.set_structure(structure)
-io.save(str(WD/"demo"/(structure.id+"_changed.txt")), preserve_atom_numbering = True)
+#io.set_structure(structure)
+#io.save(str(WD/"demo"/(structure.id+"_changed.txt")), preserve_atom_numbering = True)
 
 
 
