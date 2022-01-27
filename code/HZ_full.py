@@ -192,11 +192,14 @@ def get_graph(data_folder, file):
 
 def get_embeddings(data_folder, file, emb_name):
     prot_file = os.path.join(data_folder, file)
-    structure = parser.get_structure("My_protein", prot_file)
+    structure = parser.get_structure(file[:-4], prot_file)
 
     # Get all residues
     residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
     # Get the protein sequence
+    if structure.id=="5dlt":
+        print("stop")
+        sequence, index_list = get_sequence(residues)
     sequence,index_list = get_sequence(residues)
 
     # Get the sequence embeddings
@@ -370,7 +373,8 @@ testset = [os.listdir(data_folder)[i] for i in test_indices]
 def make_folder(folder):
     if os.path.exists(folder):
         print("folder already existing:", str(folder))
-        # shutil.rmtree(folder) yannick
+        shutil.rmtree(folder)
+        os.makedirs(folder)
     else:
         os.makedirs(folder)
 
@@ -455,7 +459,7 @@ def generate_graphs():
         batch_number += 1
 
 
-generate_graphs()
+# generate_graphs()
 
 # ### Embeddings
 

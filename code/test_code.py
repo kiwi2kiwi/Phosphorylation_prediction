@@ -1,3 +1,10 @@
+#import matplotlib
+#import matplotlib.pyplot as plt
+#matplotlib.use("TkAgg")
+#plt.scatter(x=[1,2,3], y = [3,2,1])
+#plt.show()
+
+
 from pathlib import Path
 import math
 from Bio.PDB import *

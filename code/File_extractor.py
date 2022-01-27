@@ -123,10 +123,11 @@ def remove_except_CA(structure, true_chain):
 #            if chain.id != true_chain:
 #                model.detach_child(chain.id)
         for chain in model:
-            res_keys = list(chain.child_dict.keys())
-            for res in res_keys:
-                if res[1] <= 0:
-                    chain.detach_child(res)
+            # supposed to remove residues that were added to aid in expression = resnumber < 1 but disabled because phosphate location in there
+            # res_keys = list(chain.child_dict.keys())
+            # for res in res_keys:
+            #     if res[1] <= 0:
+            #         chain.detach_child(res)
             for residue in chain:
                 keys = list(residue.child_dict.keys())
                 for atom in keys:
@@ -193,8 +194,6 @@ def copy_least_phosphorylated_to_pdb_collection():
             best_file = "none"
             best_s = "none"
             for s in i.protein_structures.values():
-                if s.id == 'Q79PF4':
-                    print("stop")
                 watch = len(s.phosphorylated) - sum(s.phosphorylated)
                 if (len(s.phosphorylated) - sum(s.phosphorylated)) >= best_count:
                     best_file = s.location
@@ -210,6 +209,11 @@ def copy_least_phosphorylated_to_pdb_collection():
             strt = remove_except_CA(strt,best_s.chain)
             io.set_structure(strt)
             io.save(str(WD / "pdb_collection" / (strt.id + ".txt")), preserve_atom_numbering=True)
+            pable_residues = []
+            for res in strt.get_residues():
+                if res.id[2] == " ":
+                    if res.resname == "SER" or res.resname == "TYR" or res.resname == "THR":
+                        pable_residues.append(float(res.id[1]))
 
             print(dst)
 
@@ -220,11 +224,15 @@ def copy_least_phosphorylated_to_pdb_collection():
             linewrite_pos = ""
             for pos in best_s.phosphorylated_positions:
                 linewrite_pos += "," + str(pos)
+            linewrite_p_able = ""
+            for pa in pable_residues:
+                linewrite_p_able += "," + str(pa)
             linewrite_p = linewrite_p[1:]
             linewrite_pos = linewrite_pos[1:]
+            linewrite_p_able = linewrite_p_able[1:]
 
             # this file consists of the structure name, if residues are phosphorylated in this structure = 1, or where we know residues are phosphorylated in other structures = 0, and their positions
-            iop.write((best_s.name + "\t" + linewrite_p + "\t" + linewrite_pos + "\t" + best_s.chain  + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\n"))
+            iop.write((best_s.name + "\t" + linewrite_p + "\t" + linewrite_pos + "\t" + best_s.chain  + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\t" + str(linewrite_p_able) + "\n"))
 
 
 copy_least_phosphorylated_to_pdb_collection()
@@ -287,9 +295,9 @@ def modifypdbs(pdb_dir):
             model_max_dict[model.id] = 0
             for chain in model:
                 for residue in chain:
-#                    for atom in residue:
-#                        if atom.element=="H":
-#                            residue.detach_child(atom.id)
+                    #                    for atom in residue:
+                    #                        if atom.element=="H":
+                    #                            residue.detach_child(atom.id)
                     if "P" in residue and (residue.resname == "SER" or residue.resname == "TYR" or residue.resname == "THR"):
                         phospho_pos.add(residue.id[1])
                         model_max_dict[model.id] = model_max_dict[model.id]+1
@@ -338,14 +346,26 @@ def modifypdbs(pdb_dir):
             if len(structure.child_dict.keys()) > 1:
                 structure.detach_child(i)
 
+        pable_residues = []
+        for residue in structure.get_residues():
+            if residue.id[2]==" ":
+                if residue.resname == "SER" or residue.resname == "TYR" or residue.resname == "THR":
+                    if float(residue.id[1]) not in pable_residues:
+                        #print("stop")
+                        pable_residues.append(float(residue.id[1]))
+
         linewrite_pos = ""
         for pos in phospho_pos:
             linewrite_pos += "," + str(pos)
         linewrite_p = ""
         for p in phospho_pos:
             linewrite_p += ",1"
+        linewrite_p_able = ""
+        for pa in pable_residues:
+            linewrite_p_able += "," + str(pa)
         linewrite_p = linewrite_p[1:]
         linewrite_pos = linewrite_pos[1:]
+        linewrite_p_able = linewrite_p_able[1:]
 
         sequence_start = structure.child_list[0].child_list[0].child_list[0].id[1]
         sequence_end = structure.child_list[0].child_list[0].child_list[-1].id[1]
@@ -353,7 +373,7 @@ def modifypdbs(pdb_dir):
         with open(iop_file, 'a') as iop:
             iopfile = iop
 
-            iopfile.write((structure.id+ "\t"+ linewrite_p+ "\t"+ linewrite_pos + "\t" + pStruc_dict[structure.id].chain + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\n"))
+            iopfile.write((structure.id+ "\t"+ linewrite_p+ "\t"+ linewrite_pos + "\t" + pStruc_dict[structure.id].chain + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\t" + str(linewrite_p_able) + "\n"))
         io.set_structure(structure)
         io.save(str(WD/"pdb_collection"/(structure.id+".txt")), preserve_atom_numbering = True)
 
