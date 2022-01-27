@@ -12,7 +12,10 @@ import pandas as pd
 from Bio.PDB import *
 parser = PDBParser()
 
-
+one_code = {"S": 0,
+            "Y": 1,
+            "T": 2,
+            }
 STANDARD_AMINO_ACIDS={'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C', 'GLN':'Q', 'GLU':'E',
              'GLY':'G', 'HIS':'H', 'ILE':'I', 'LEU':'L',
                  'LYS':'K', 'MET':'M', 'PHE':'F', 'PRO':'P', 'SER':'S'
@@ -62,6 +65,16 @@ def combine_training_embeddings():
                 possible_labels.remove(i)
         possible_list.loc[possible_labels] = 1
         to_append[513] = possible_list
+
+        STW_labels = []
+        for i in res_dict[file[:-2]]:
+            if STANDARD_AMINO_ACIDS[i.resname] in one_code.keys():
+                STW_labels.append(one_code[STANDARD_AMINO_ACIDS[i.resname]])
+            else:
+                STW_labels.append(3)
+        STW_list = pd.Series(STW_labels, to_append.index)
+        to_append[514] = STW_list
+
         if to_append[(to_append[512] == 1) & (to_append[512] == 0)].shape[0] > 0:
             print("stop")
         to_append = to_append[to_append[513] == 1]
@@ -74,7 +87,7 @@ def combine_training_embeddings():
     pickle.dump(training_embs, open(os.path.join("../ML_data", "visualization", "tsne_embs.txt"), "wb"))
     return training_embs
 
-#training_embs = combine_training_embeddings()
+training_embs = combine_training_embeddings()
 training_embs = pickle.load(open(os.path.join("../ML_data", "visualization", "tsne_embs.txt"), "rb"))
 
 false_labels = training_embs.loc[training_embs[512] == 0]
@@ -86,8 +99,8 @@ sample_n = true_labels.shape[0]
 tsne_data = pd.DataFrame()
 tsne_data = tsne_data.append(true_labels)
 tsne_data = tsne_data.append(false_labels)
-X = tsne_data.iloc[:,:-2]
-Y = tsne_data.iloc[:,-2:]
+X = tsne_data.iloc[:,:-3]
+Y = tsne_data.iloc[:,-3:]
 print("numper of phosphosites: " + str(sample_n))
 
 
@@ -107,6 +120,16 @@ target_ids = [0,1]
 colors = ["r","b"]
 #zettel = np.concatenate((np.full((sample_n),"linker"),np.full((sample_n),"domain")))
 colors = np.concatenate((np.full((sample_n),"r"),np.full((sample_n),"b")))
+Y = Y.reset_index(drop=True)
+S = Y[Y[514]==0]
+Sm = m[S.index]
+W = Y[Y[514]==1]
+Wm = m[W.index]
+T = Y[Y[514]==2]
+Tm = m[T.index]
+colors_S = np.full((S.index.shape[0]), "g")
+colors_W = np.full((W.index.shape[0]), "b")
+colors_T = np.full((T.index.shape[0]), "r")
 colors_nP = np.full((m[sample_n:,1].shape[0]),"b")
 colors_pP = np.full((sample_n),"r")
 
@@ -114,9 +137,15 @@ m_df = pd.DataFrame(m)
 
 
 fig, ax = plt.subplots()
-ax.scatter(m[sample_n:,0], m[sample_n:,1], c=colors_nP, label="nP", alpha=0.4, s=50)
-ax.scatter(m[:sample_n,0], m[:sample_n,1], c=colors_pP, label="pP", alpha=0.4, s=50)
+#ax.scatter(m[sample_n:,0], m[sample_n:,1], c=colors_nP, label="nP", alpha=0.4, s=50)
+#ax.scatter(m[:sample_n,0], m[:sample_n,1], c=colors_pP, label="pP", alpha=0.4, s=50)
+
+ax.scatter(Sm[:,0], Sm[:,1], c=colors_S, label="S", alpha=0.4, s=50)
+ax.scatter(Wm[:,0], Wm[:,1], c=colors_W, label="Y", alpha=0.4, s=50)
+ax.scatter(Tm[:,0], Tm[:,1], c=colors_T, label="T", alpha=0.4, s=50)
+
 
 fig.suptitle("samples: " + str(m.shape[0]) + "\nperplexity: " + str(perplex) + "\nlearning rate: " + str(learn_rate) + "\nn_components: " + str(components))
 ax.legend()
 fig.show()
+print("donw")
