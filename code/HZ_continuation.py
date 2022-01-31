@@ -164,10 +164,7 @@ import torch
 
 #my_graph = create_dgl_graph(A, feats, labels, 1, 0, 0)
 #print(my_graph.ndata)
-
 # "In[244]:"
-
-
 # Split into validation test
 
 # GRAPHS
@@ -192,20 +189,32 @@ for x, y in VAL_GRAPHS.items():
         TEST_GRAPHS[x] = y
     i += 1
 
+
 # "In[245]:"
 
+create = False
 
-# Train
-onehot = False
-print("Creating training set...")
-g_train = create_dgl_data(TRAIN_GRAPHS, TRAIN_EMBS, train=1, val=0, test=0, onehot=onehot)
-# Validation
-print("Creating validation set...")
-g_val = create_dgl_data(VAL_GRAPHS, VAL_EMBS, train=0, val=1, test=0, onehot=onehot)
-# Test
-print("Creating Test set...")
-g_test = create_dgl_data(TEST_GRAPHS, TEST_EMBS, train=0, val=0, test=1, onehot=onehot)
-
+train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
+val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
+test_embs_pth = os.path.join("../ML_data", "test_data", "graph")
+if create:
+    # Train
+    onehot = False
+    print("Creating training set...")
+    g_train = create_dgl_data(TRAIN_GRAPHS, TRAIN_EMBS, train=1, val=0, test=0, onehot=onehot)
+    pickle.dump(g_train, open(os.path.join(train_embs_pth), "wb"))
+    # Validation
+    print("Creating validation set...")
+    g_val = create_dgl_data(VAL_GRAPHS, VAL_EMBS, train=0, val=1, test=0, onehot=onehot)
+    pickle.dump(g_val, open(os.path.join(val_embs_pth), "wb"))
+    # Test
+    print("Creating Test set...")
+    g_test = create_dgl_data(TEST_GRAPHS, TEST_EMBS, train=0, val=0, test=1, onehot=onehot)
+    pickle.dump(g_test, open(os.path.join(test_embs_pth), "wb"))
+else:
+    g_train = pickle.load(open(train_embs_pth, "rb"))
+    g_val = pickle.load(open(val_embs_pth, "rb"))
+    g_test = pickle.load(open(test_embs_pth, "rb"))
 g = dgl.batch([g_train, g_val, g_test])
 
 # "In[246]:"
@@ -287,7 +296,7 @@ class GCN(nn.Module):
             self.conv9 = ConvLayer(layers[8], layers[9])  # ,norm='both')#,allow_zero_in_degree=True)
 
         # Output layer
-        self.output = ConvLayer(layers[-1], 2)  # ,norm='both')#,allow_zero_in_degree=True)
+        self.output = ConvLayer(layers[-1], 3)  # ,norm='both')#,allow_zero_in_degree=True)
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
@@ -329,7 +338,7 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
 
     #     # Set sample importance weights
     weights = []
-    n0 = sum(x == 0 for x in labels[train_mask])
+    # n0 = sum(x == 0 for x in labels[train_mask])
     n1 = sum(x == 1 for x in labels[train_mask])
     n2 = sum(x == 2 for x in labels[train_mask])
     for e in range(n_epochs + 1):
@@ -337,10 +346,10 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
         logits = model(g, features)
         # Compute prediction
         pred = logits.argmax(1)
-
         # Compute loss
         # Note that you should only compute the losses of the nodes in the training set.
-        weight = (torch.Tensor([0, n2, n1]))
+        weight = (torch.Tensor([0, 350,11945])) # (torch.Tensor([0, n2, n1]))
+        print(logits[train_mask].shape)
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
 
         # Backward
@@ -349,6 +358,8 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
         optimizer.step()
 
         if e % 5 == 0:
+            # removing the impossible aa from the prediction
+
             # Evaluation metric
             train_metric, val_metric = get_metric(pred, labels, train_mask, val_mask, metric_name)
             print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(

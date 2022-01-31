@@ -4,6 +4,16 @@
 #plt.scatter(x=[1,2,3], y = [3,2,1])
 #plt.show()
 
+#global var
+var = 4
+
+def foo1():
+    global var
+    var += 1
+
+foo1()
+foo1()
+print(var)
 
 from pathlib import Path
 import math

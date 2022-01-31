@@ -80,9 +80,6 @@ embedder = OneHotEncodingEmbedder()
 embedder.embed("MLSDKLSQD").shape
 embedder.embed("MLSDMLKSMFLKS").shape
 
-global true_labels
-global false_labels
-global impossible_labels
 true_labels = 0
 false_labels = 0
 impossible_labels = 0
@@ -175,6 +172,9 @@ def embedding_twister(sequence, emb_name):
 
 
 def get_graph(data_folder, file):
+    global true_labels
+    global false_labels
+    global impossible_labels
     prot_file = os.path.join(data_folder, file)
     structure = parser.get_structure(file[:-4], prot_file)
 
@@ -206,6 +206,13 @@ def get_embeddings(data_folder, file, emb_name):
 
     # Get all residues
     residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
+    valid = []
+    for res in structure.get_residues():
+        if res.get_resname() in ["SER","THR","TYR"]:
+            valid.append([1])
+        else:
+            valid.append(0)
+    #valid = [1 for res in structure.get_residues() if res.get_resname() in ["SER","THR","TYR"]]
     # Get the protein sequence
     sequence,index_list = get_sequence(residues)
 
@@ -213,6 +220,7 @@ def get_embeddings(data_folder, file, emb_name):
     #embedding1 = EMBEDDERS["onehot"].embed(sequence)
     embedding = EMBEDDERS[emb_name].embed(sequence)
     embedding = pd.DataFrame(embedding)
+    embedding[512] = valid
     embedding[""] = index_list
     embedding = embedding.set_index("")
     embedding.index.name = None
