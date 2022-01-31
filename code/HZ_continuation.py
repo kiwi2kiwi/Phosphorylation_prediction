@@ -398,7 +398,15 @@ layers = [g.ndata['feat'].shape[1],64,16,8]#,64,32,16,8,4] # , 64] # yannick
 print("model : ", layers)
 model = GCN(layers)
 import cProfile
-cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.txt")
+cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.dat")
+import pstats
+from pstats import SortKey
+with open("output_time.txt", "w")as f:
+    p = pstats.Stats("output.dat", stream=f)
+    p.sort_stats("time").print_stats()
+with open("output_calls.txt", "w") as f:
+    p = pstats.Stats("output.dat", stream=f)
+    p.sort_stats("calls").print_stats()
 pred, true = train(g, model, n_epochs=500, metric_name="mcc")
 
 # #### Holo4k
