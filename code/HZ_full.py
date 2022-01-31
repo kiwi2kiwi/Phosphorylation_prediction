@@ -207,7 +207,7 @@ def get_embeddings(data_folder, file, emb_name):
     # Get all residues
     residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
     valid = []
-    for res in structure.get_residues():
+    for res in residues:
         if res.get_resname() in ["SER","THR","TYR"]:
             valid.append([1])
         else:
@@ -474,7 +474,7 @@ def generate_graphs():
         batch_number += 1
 
 
-generate_graphs()
+# generate_graphs()
 
 # ### Embeddings
 
