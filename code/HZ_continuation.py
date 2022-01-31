@@ -44,9 +44,9 @@ train_graphs = WD / "ML_data" / "train_data" / "graphs"
 val_graphs = WD / "ML_data" / "val_data" / "graphs"
 test_graphs = WD / "ML_data" / "test_data" / "graphs"
 
-train_embs = WD / "ML_data" / "train_data" / "embeddings"
-val_embs = WD / "ML_data" / "val_data" / "embeddings"
-test_embs = WD / "ML_data" / "test_data" / "embeddings"
+train_embs = WD / "ML_data" / "train_data" / "embeddings" / emb_name
+val_embs = WD / "ML_data" / "val_data" / "embeddings" / emb_name
+test_embs = WD / "ML_data" / "test_data" / "embeddings" / emb_name
 for file in os.listdir(train_graphs):
     TRAIN_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(train_graphs, file), "rb"))
 print(f"Training graphs loaded : {len(TRAIN_GRAPHS)} items")
@@ -106,7 +106,7 @@ import tensorflow as tf
 
 def create_dgl_graph(A, feats, labels, train, val, test):
     g = dgl.from_scipy(A)
-    g.ndata["feat"] = torch.tensor(feats).long()
+    g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
     g.ndata["label"] = torch.tensor(labels).long()
     g.ndata["train_mask"] = torch.tensor(np.ones(A.shape[0]) == train)
     g.ndata["val_mask"] = torch.tensor(np.ones(A.shape[0]) == val)
@@ -117,15 +117,18 @@ def create_dgl_graph(A, feats, labels, train, val, test):
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
     g = dgl.graph([])
-    mode = "notsum"
+    mode = "glove"
     for prot in graphs.keys():
         A, labels = graphs[prot]
         feats = embeddings[prot]
         if mode == "sum":
+            print("mode sum")
             feats = np.sum(embeddings[prot], axis=0)
         elif mode == "concat":
+            print("mode concat")
             feats = embeddings[prot].reshape(embeddings[prot].shape[1], -1)
-        elif not onehot:
+        elif onehot: # yannick
+            print("onehot not using")
             feats = feats[mode]
 
         g1 = create_dgl_graph(A, feats, labels, train, val, test)
@@ -159,7 +162,7 @@ A = scipy.sparse.csr_matrix(A)
 
 import torch
 
-my_graph = create_dgl_graph(A, feats, labels, 1, 0, 0)
+#my_graph = create_dgl_graph(A, feats, labels, 1, 0, 0)
 #print(my_graph.ndata)
 
 # "In[244]:"
@@ -193,7 +196,7 @@ for x, y in VAL_GRAPHS.items():
 
 
 # Train
-onehot = True
+onehot = False
 print("Creating training set...")
 g_train = create_dgl_data(TRAIN_GRAPHS, TRAIN_EMBS, train=1, val=0, test=0, onehot=onehot)
 # Validation
@@ -216,7 +219,8 @@ print("Distribution of training labels (all proteins)")
 print(np.unique(np.array(labels[train_mask]), return_counts=True))
 print("Distribution of validation labels (all proteins)")
 print(np.unique(np.array(labels[val_mask]), return_counts=True))
-
+print("Distribution of testing labels (all proteins)")
+print(np.unique(np.array(labels[test_mask]), return_counts=True))
 # "In[253]:"
 
 
@@ -327,6 +331,7 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
     weights = []
     n0 = sum(x == 0 for x in labels[train_mask])
     n1 = sum(x == 1 for x in labels[train_mask])
+    n2 = sum(x == 2 for x in labels[train_mask])
     for e in range(n_epochs + 1):
         # Forward
         logits = model(g, features)
@@ -335,7 +340,7 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
 
         # Compute loss
         # Note that you should only compute the losses of the nodes in the training set.
-        weight = (torch.Tensor([n1, n0]))
+        weight = (torch.Tensor([0, n2, n1]))
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
 
         # Backward

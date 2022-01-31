@@ -34,8 +34,6 @@ STANDARD_AMINO_ACIDS={'ALA':'A', 'ARG':'R', 'ASN':'N', 'ASP':'D', 'CYS':'C', 'GL
 ACs=list(STANDARD_AMINO_ACIDS.keys())
 AC_letters=list(STANDARD_AMINO_ACIDS.values())
 
-
-
 from Bio.PDB import *
 
 # PDB parser
@@ -82,7 +80,12 @@ embedder = OneHotEncodingEmbedder()
 embedder.embed("MLSDKLSQD").shape
 embedder.embed("MLSDMLKSMFLKS").shape
 
-
+global true_labels
+global false_labels
+global impossible_labels
+true_labels = 0
+false_labels = 0
+impossible_labels = 0
 
 # ## Graph connectivity and ligandability
 
@@ -170,6 +173,7 @@ def embedding_twister(sequence, emb_name):
     embedding = emb1
     return embedding
 
+
 def get_graph(data_folder, file):
     prot_file = os.path.join(data_folder, file)
     structure = parser.get_structure(file[:-4], prot_file)
@@ -185,7 +189,13 @@ def get_graph(data_folder, file):
 
     for idx, residue_structured in enumerate(residues):
         if label_dict[file[:-4]].__contains__(float(residue_structured.id[1])):
+            labels[idx] = 2
+            true_labels += 1
+        elif residue_structured.get_resname() in ["THR", "TYR", "SER"]:
             labels[idx] = 1
+            false_labels += 1
+        else:
+            impossible_labels += 1
 
     return scipy.sparse.csr_matrix(A), labels
 
@@ -197,9 +207,6 @@ def get_embeddings(data_folder, file, emb_name):
     # Get all residues
     residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
     # Get the protein sequence
-    if structure.id=="5dlt":
-        print("stop")
-        sequence, index_list = get_sequence(residues)
     sequence,index_list = get_sequence(residues)
 
     # Get the sequence embeddings
@@ -420,9 +427,6 @@ train_graphs = os.path.join("../ML_data", "train_data", "graphs")
 val_graphs = os.path.join("../ML_data", "val_data", "graphs")
 test_graphs = os.path.join("../ML_data", "test_data", "graphs")
 # "In[330]:"
-make_folder(train_graphs)
-make_folder(val_graphs)
-make_folder(test_graphs)
 # "In[336]:"
 print(f"Training graphs : {n_train} elements")
 print(f"Validation graphs : {n_val} elements")
@@ -436,7 +440,7 @@ training_set_intervall_size = 20
 
 # Create graphs
 
-def holo4k_graph(n,index_set,set_type,save_path):
+def graph_generation(n, index_set, set_type, save_path):
     a = n * training_set_intervall_size
     b = (n + 1) * training_set_intervall_size
     print(f"{set_type} graphs : from {a} to {b}")
@@ -450,16 +454,19 @@ def holo4k_graph(n,index_set,set_type,save_path):
 
 
 def generate_graphs():
+    # make_folder(train_graphs)
+    # make_folder(val_graphs)
+    # make_folder(test_graphs)
     # "In[339]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
-        holo4k_graph(batch_number, trainset, "Training", train_graphs)
-        holo4k_graph(batch_number, valset, "Validation", val_graphs)
-        holo4k_graph(batch_number, testset, "Testing", test_graphs)
+        graph_generation(batch_number, trainset, "Training", train_graphs)
+        graph_generation(batch_number, valset, "Validation", val_graphs)
+        graph_generation(batch_number, testset, "Testing", test_graphs)
         batch_number += 1
 
 
-# generate_graphs()
+generate_graphs()
 
 # ### Embeddings
 
@@ -474,9 +481,6 @@ test_embs = os.path.join("../ML_data", "test_data", "embeddings", emb_name)
 # "In[349]:"
 
 
-make_folder(train_embs)
-make_folder(val_embs)
-make_folder(test_embs)
 
 # "In[350]:"
 
@@ -487,7 +491,7 @@ print(f"Testing embeddings : {n_test} elements")
 
 
 # Create embeddings
-def holo4k_emb(n,index_set,set_type,save_path):
+def embedding_generation(n, index_set, set_type, save_path):
     a = n * training_set_intervall_size
     b = (n + 1) * training_set_intervall_size
     print(f"{set_type} embeddings : from {a} to {b}")
@@ -501,12 +505,15 @@ def holo4k_emb(n,index_set,set_type,save_path):
 
 
 def create_embeddings():
+    # make_folder(train_embs)
+    # make_folder(val_embs)
+    # make_folder(test_embs)
     # "In[351]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
-        holo4k_emb(batch_number, trainset, "Training", train_embs)
-        holo4k_emb(batch_number, valset, "Validation", val_embs)
-        holo4k_emb(batch_number, testset, "Testing", test_embs)
+        embedding_generation(batch_number, trainset, "Training", train_embs)
+        embedding_generation(batch_number, valset, "Validation", val_embs)
+        embedding_generation(batch_number, testset, "Testing", test_embs)
         batch_number += 1
 
 create_embeddings()
