@@ -209,7 +209,7 @@ def get_embeddings(data_folder, file, emb_name):
     valid = []
     for res in residues:
         if res.get_resname() in ["SER","THR","TYR"]:
-            valid.append([1])
+            valid.append(1)
         else:
             valid.append(0)
     #valid = [1 for res in structure.get_residues() if res.get_resname() in ["SER","THR","TYR"]]

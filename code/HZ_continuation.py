@@ -106,7 +106,8 @@ import tensorflow as tf
 
 def create_dgl_graph(A, feats, labels, train, val, test):
     g = dgl.from_scipy(A)
-    g.ndata["feat"] = torch.tensor(feats).long()# [feats.columns].values
+    feats = feats.reset_index(drop=True)
+    g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
     g.ndata["label"] = torch.tensor(labels).long()
     g.ndata["train_mask"] = torch.tensor(np.ones(A.shape[0]) == train)
     g.ndata["val_mask"] = torch.tensor(np.ones(A.shape[0]) == val)
@@ -192,7 +193,7 @@ for x, y in VAL_GRAPHS.items():
 
 # "In[245]:"
 
-create = True
+create = False
 
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
@@ -323,11 +324,27 @@ class GCN(nn.Module):
         h = F.softmax(h, 1)
         return h
 
+def slim_for_metrics(features, pred, labels, train_mask, val_mask):
+    df_feat = pd.DataFrame(features.numpy())
+    df_pred = pd.DataFrame(pred.numpy())
+    df_labels = pd.DataFrame(labels.numpy())
+    df_train_mask = pd.DataFrame(train_mask.numpy())
+    df_val_mask = pd.DataFrame(val_mask.numpy())
+    usable = df_feat[512] == 1
+    df_pred = df_pred[usable]
+    df_labels = df_labels[usable]
+    df_train_mask = df_train_mask[usable]
+    df_val_mask = df_val_mask[usable]
+    met_pred = torch.tensor(df_pred.to_numpy())
+    met_labels = torch.tensor(df_labels.to_numpy())
+    met_train_mask = torch.tensor(df_train_mask.to_numpy())
+    met_val_mask = torch.tensor(df_val_mask.to_numpy())
+    return met_pred, met_labels, met_train_mask, met_val_mask
 
-# "In[325]:"
+#"In[325]:"
 
 
-def train(g, model, n_epochs, metric_name, lr=3e-3):
+def train(g, model, n_epochs, metric_name, lr=3e-4):
     optimizer = torch.optim.Adam(model.parameters(), lr)
     # Get graph features, labels and masks
     features = g.ndata['feat']
@@ -342,6 +359,7 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
     n1 = sum(x == 1 for x in labels[train_mask])
     n2 = sum(x == 2 for x in labels[train_mask])
     for e in range(n_epochs + 1):
+        print("Epoch: ", e)
         # Forward
         logits = model(g, features)
         # Compute prediction
@@ -349,7 +367,6 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
         # Compute loss
         # Note that you should only compute the losses of the nodes in the training set.
         weight = (torch.Tensor([0, n2, n1]))
-        print(logits[train_mask].shape)
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
 
         # Backward
@@ -359,24 +376,12 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
 
         if e % 5 == 0:
             # removing the impossible aa from the prediction
-
+            met_pred, met_labels, met_train_mask, met_val_mask = slim_for_metrics(features, pred, labels, train_mask, val_mask)
             # Evaluation metric
-            df_feat = pd.DataFrame(features.numpy())
-            df_pred = pd.DataFrame(pred.numpy())
-            df_labels = pd.DataFrame(labels.numpy())
-            df_train_mask = pd.DataFrame(train_mask.numpy())
-            df_val_mask = pd.DataFrame(val_mask.numpy())
-            df_pred = df_pred[df_feat[512] == 1]
-            df_labels = df_labels[df_feat[512] == 1]
-            df_train_mask = df_train_mask[df_feat[512] == 1]
-            df_val_mask = df_val_mask[df_feat[512] == 1]
-            met_pred = torch.tensor(df_pred.columns.values)
-            met_labels = torch.tensor(df_labels.columns.values)
-            met_train_mask = torch.tensor(df_train_mask.columns.values)
-            met_val_mask = torch.tensor(df_val_mask.columns.values)
             train_metric, val_metric = get_metric(met_pred, met_labels, met_train_mask, met_val_mask, metric_name)
             print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(
                 e, loss, metric_name, train_metric, metric_name, val_metric))
+            break
 
     return np.array(pred[val_mask]), np.array(labels[val_mask])
 
@@ -389,10 +394,12 @@ def train(g, model, n_epochs, metric_name, lr=3e-3):
 
 
 # Train the model
-layers = [g.ndata['feat'].shape[1],16,16,16]#,64,32,16,8,4] # , 64] # yannick
+layers = [g.ndata['feat'].shape[1],64,16,8]#,64,32,16,8,4] # , 64] # yannick
 print("model : ", layers)
 model = GCN(layers)
-pred, true = train(g, model, n_epochs=100, metric_name="mcc")
+import cProfile
+cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.txt")
+pred, true = train(g, model, n_epochs=500, metric_name="mcc")
 
 # #### Holo4k
 
