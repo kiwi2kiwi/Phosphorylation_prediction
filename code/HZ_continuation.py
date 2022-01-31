@@ -2,6 +2,8 @@
 # coding: utf-8
 import os
 import time
+from audioop import bias
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -269,6 +271,7 @@ def get_metric(pred, labels, train_mask, val_mask, name):
 # Graph convolution layer
 from dgl.nn import SGConv as ConvLayer
 from dgl.nn import MaxPooling
+dgl.seed(1)
 
 
 class GCN(nn.Module):
@@ -278,26 +281,26 @@ class GCN(nn.Module):
         self.convs = []
         self.n_layers = len(layers) - 1
         # Hidden layers
-        self.conv1 = ConvLayer(layers[0], layers[1])  # ,norm='both',allow_zero_in_degree=True)
+        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 2:
-            self.conv2 = ConvLayer(layers[1], layers[2])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 3:
-            self.conv3 = ConvLayer(layers[2], layers[3])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 4:
-            self.conv4 = ConvLayer(layers[3], layers[4])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 5:
-            self.conv5 = ConvLayer(layers[4], layers[5])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 6:
-            self.conv6 = ConvLayer(layers[5], layers[6])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 7:
-            self.conv7 = ConvLayer(layers[6], layers[7])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 8:
-            self.conv8 = ConvLayer(layers[7], layers[8])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
         if self.n_layers >= 9:
-            self.conv9 = ConvLayer(layers[8], layers[9])  # ,norm='both')#,allow_zero_in_degree=True)
+            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
 
         # Output layer
-        self.output = ConvLayer(layers[-1], 3)  # ,norm='both')#,allow_zero_in_degree=True)
+        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
@@ -381,7 +384,6 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
             train_metric, val_metric = get_metric(met_pred, met_labels, met_train_mask, met_val_mask, metric_name)
             print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(
                 e, loss, metric_name, train_metric, metric_name, val_metric))
-            break
 
     return np.array(pred[val_mask]), np.array(labels[val_mask])
 
@@ -394,9 +396,10 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
 
 
 # Train the model
-layers = [g.ndata['feat'].shape[1],64,16,8]#,64,32,16,8,4] # , 64] # yannick
+layers = [g.ndata['feat'].shape[1],32,8]#,64,32,16,8,4] # , 64] # yannick
 print("model : ", layers)
 model = GCN(layers)
+pred, true = train(g, model, n_epochs=500, metric_name="mcc")
 import cProfile
 cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.dat")
 import pstats
@@ -407,7 +410,6 @@ with open("output_time.txt", "w")as f:
 with open("output_calls.txt", "w") as f:
     p = pstats.Stats("output.dat", stream=f)
     p.sort_stats("calls").print_stats()
-pred, true = train(g, model, n_epochs=500, metric_name="mcc")
 
 # #### Holo4k
 

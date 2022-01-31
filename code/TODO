@@ -1,0 +1,10 @@
+TODO:
+- implement early stopping
+- hyperparameter optimization
+    - pooling to decrease feature space
+    - batch normalization, dropout
+    - layer size, amout of layers, decreasing size layers, stagnating size layers
+    - bias and hops: bias=False, k=2
+    - also look up in
+- different embeddings
+- try out different machine learning models
