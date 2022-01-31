@@ -1,5 +1,7 @@
 TODO:
 - implement early stopping
+- visualize the loss curve
+- maby cross-validation
 - hyperparameter optimization
     - pooling to decrease feature space
     - batch normalization, dropout
@@ -7,4 +9,5 @@ TODO:
     - bias and hops: bias=False, k=2
     - also look up in
 - different embeddings
+- visualization of results
 - try out different machine learning models

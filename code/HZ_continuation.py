@@ -2,8 +2,6 @@
 # coding: utf-8
 import os
 import time
-from audioop import bias
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -345,7 +343,7 @@ def slim_for_metrics(features, pred, labels, train_mask, val_mask):
     return met_pred, met_labels, met_train_mask, met_val_mask
 
 #"In[325]:"
-
+import EarlyStopping
 
 def train(g, model, n_epochs, metric_name, lr=3e-4):
     optimizer = torch.optim.Adam(model.parameters(), lr)
@@ -356,7 +354,11 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
     val_mask = g.ndata['val_mask']
     test_mask = g.ndata['test_mask']
 
-    #     # Set sample importance weights
+    # initialize the early_stopping object
+    #early_stopping = EarlyStopping(patience=5, verbose=True, epoch_patience=7,
+    #                               path="early_stopping_models\\model.pt")
+
+    # Set sample importance weights
     weights = []
     # n0 = sum(x == 0 for x in labels[train_mask])
     n1 = sum(x == 1 for x in labels[train_mask])
@@ -376,6 +378,11 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        #early_stopping(loss, model, e)
+        #if early_stopping.early_stop:
+        #    print("Early stopping")
+        #    break
 
         if e % 5 == 0:
             # removing the impossible aa from the prediction
