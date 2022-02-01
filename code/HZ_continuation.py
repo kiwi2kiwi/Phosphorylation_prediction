@@ -279,26 +279,26 @@ class GCN(nn.Module):
         self.convs = []
         self.n_layers = len(layers) - 1
         # Hidden layers
-        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 2:
-            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 3:
-            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 4:
-            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 5:
-            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 6:
-            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 7:
-            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 8:
-            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 9:
-            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
 
         # Output layer
-        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True, bias=False, k=2) #  , norm='both',
+        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
@@ -344,6 +344,9 @@ def slim_for_metrics(features, pred, labels, train_mask, val_mask):
 
 #"In[325]:"
 import EarlyStopping
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 
 def train(g, model, n_epochs, metric_name, lr=3e-4):
     optimizer = torch.optim.Adam(model.parameters(), lr)
@@ -355,14 +358,15 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
     test_mask = g.ndata['test_mask']
 
     # initialize the early_stopping object
-    #early_stopping = EarlyStopping(patience=5, verbose=True, epoch_patience=7,
-    #                               path="early_stopping_models\\model.pt")
+    early_stopping = EarlyStopping(patience=10, path="..\\ML_data\\ML_models_saves\\model.pt")
 
     # Set sample importance weights
     weights = []
     # n0 = sum(x == 0 for x in labels[train_mask])
     n1 = sum(x == 1 for x in labels[train_mask])
     n2 = sum(x == 2 for x in labels[train_mask])
+    train_losses=[]
+    test_losses = []
     for e in range(n_epochs + 1):
         print("Epoch: ", e)
         # Forward
@@ -372,25 +376,39 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
         # Compute loss
         # Note that you should only compute the losses of the nodes in the training set.
         weight = (torch.Tensor([0, n2, n1]))
+        model.train()
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
+        train_losses.append(loss)
+        model.eval()
+        val_loss = nn.CrossEntropyLoss(weight)(logits[test_mask].float(), labels[test_mask].reshape(-1, ).long())
+        test_losses.append(loss)
 
         # Backward
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        #early_stopping(loss, model, e)
+        early_stopping(loss, model)
         #if early_stopping.early_stop:
         #    print("Early stopping")
         #    break
 
-        if e % 5 == 0:
+        if e % 5 == 0 or early_stopping.early_stop:
             # removing the impossible aa from the prediction
             met_pred, met_labels, met_train_mask, met_val_mask = slim_for_metrics(features, pred, labels, train_mask, val_mask)
             # Evaluation metric
             train_metric, val_metric = get_metric(met_pred, met_labels, met_train_mask, met_val_mask, metric_name)
             print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(
                 e, loss, metric_name, train_metric, metric_name, val_metric))
+            if early_stopping.early_stop or e == n_epochs:
+                fig, ax = plt.subplots()
+                ax.plot(train_losses, "b", label = "training loss")
+                ax.plot(test_losses, "r", label = "testing loss")
+                ax.xlabel("Epochs")
+                ax.legend(loc="upper right")
+                plt.title("Graph neural network with early stopping")
+                plt.show()
+
 
     return np.array(pred[val_mask]), np.array(labels[val_mask])
 

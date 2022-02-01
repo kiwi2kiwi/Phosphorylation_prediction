@@ -1,6 +1,6 @@
 TODO:
-- implement early stopping
-- visualize the loss curve
+- implement early stopping # yes maby works
+- visualize the loss curve # working on
 - maby cross-validation
 - hyperparameter optimization
     - pooling to decrease feature space

@@ -4,6 +4,21 @@
 #plt.scatter(x=[1,2,3], y = [3,2,1])
 #plt.show()
 
+import bio_embeddings.embed.prottrans_albert_bfd_embedder as prottrans_albert_bfd_embedder
+Embedder = prottrans_albert_bfd_embedder.ProtTransAlbertBFDEmbedder()
+embedded = Embedder.embed("MLSD")
+
+
+
+
+from EarlyStopping import EarlyStopping
+early_stopping = EarlyStopping(patience=1, path="..\\ML_data\\model.pt")
+early_stopping(0.5,[1])
+early_stopping(0.4,[2])
+early_stopping(0.45,[3])
+
+
+
 #global var
 var = 4
 
