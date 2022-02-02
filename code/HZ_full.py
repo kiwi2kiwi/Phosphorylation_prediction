@@ -200,6 +200,15 @@ def get_graph(data_folder, file):
     return scipy.sparse.csr_matrix(A), labels
 
 
+
+import h5py
+embedding_dictionary = {}
+embedding_source = "internal"
+if embedding_source == "external":
+    print("missing external")
+
+    # TODO open external h5py file and put residues in dictionary
+
 def get_embeddings(data_folder, file, emb_name):
     prot_file = os.path.join(data_folder, file)
     structure = parser.get_structure(file[:-4], prot_file)
@@ -215,12 +224,17 @@ def get_embeddings(data_folder, file, emb_name):
     #valid = [1 for res in structure.get_residues() if res.get_resname() in ["SER","THR","TYR"]]
     # Get the protein sequence
     sequence,index_list = get_sequence(residues)
-
     # Get the sequence embeddings
     #embedding1 = EMBEDDERS["onehot"].embed(sequence)
-    embedding = EMBEDDERS[emb_name].embed(sequence)
+    global embedding_source
+    if embedding_source == "external":
+        global embedding_dictionary
+        embedding = embedding_dictionary[file[:-4]]
+        # TODO open external h5py file and
+    else:
+        embedding = EMBEDDERS[emb_name].embed(sequence)
     embedding = pd.DataFrame(embedding)
-    embedding[512] = valid
+    embedding[-1] = valid
     embedding[""] = index_list
     embedding = embedding.set_index("")
     embedding.index.name = None
@@ -266,8 +280,24 @@ datasets = ["chen dataset", "holo4k", ]
 datasets = [""] # yannick
 # dataset="chen dataset"
 dataset = "holo4k"
-data_folder = './p2rank-datasets/' + dataset
 data_folder = "../pdb_collection" # yannick
+
+create_fasta = False
+if create_fasta:
+    with open(os.path.join("..\\ML_data\\phospho.fasta"), "w") as fasta_file:
+        to_write = ""
+        for file in os.listdir(data_folder):
+            prot_file = os.path.join(data_folder, file)
+            structure = parser.get_structure(file[:-4], prot_file)
+            # Get all residues
+            residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
+            residues_one_letter = [STANDARD_AMINO_ACIDS[res] for res in residues]
+            residues_one_letter = "\n".join(residues_one_letter)
+            to_write = (to_write,">",file[:-4],residues_one_letter,"\n")
+        fasta_file.writelines(to_write)
+print("fasta written")
+
+
 # "In[15]:"
 
 

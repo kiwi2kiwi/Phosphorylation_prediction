@@ -343,12 +343,12 @@ def slim_for_metrics(features, pred, labels, train_mask, val_mask):
     return met_pred, met_labels, met_train_mask, met_val_mask
 
 #"In[325]:"
-import EarlyStopping
+from EarlyStopping import EarlyStopping
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-def train(g, model, n_epochs, metric_name, lr=3e-4):
+def train(g, model, n_epochs, metric_name, lr=1e-3):
     optimizer = torch.optim.Adam(model.parameters(), lr)
     # Get graph features, labels and masks
     features = g.ndata['feat']
@@ -380,8 +380,8 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
         train_losses.append(loss)
         model.eval()
-        val_loss = nn.CrossEntropyLoss(weight)(logits[test_mask].float(), labels[test_mask].reshape(-1, ).long())
-        test_losses.append(loss)
+        val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
+        test_losses.append(val_loss)
 
         # Backward
         optimizer.zero_grad()
@@ -401,10 +401,12 @@ def train(g, model, n_epochs, metric_name, lr=3e-4):
             print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(
                 e, loss, metric_name, train_metric, metric_name, val_metric))
             if early_stopping.early_stop or e == n_epochs:
+                train_losses_np = [t.detach().numpy() for t in train_losses]
+                test_losses_np = [t.detach().numpy() for t in test_losses]
                 fig, ax = plt.subplots()
-                ax.plot(train_losses, "b", label = "training loss")
-                ax.plot(test_losses, "r", label = "testing loss")
-                ax.xlabel("Epochs")
+                ax.plot(train_losses_np, "b", label = "training loss")
+                ax.plot(test_losses_np, "r", label = "testing loss")
+                fig.xlabel("Epochs")
                 ax.legend(loc="upper right")
                 plt.title("Graph neural network with early stopping")
                 plt.show()

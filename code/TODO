@@ -1,13 +1,15 @@
 TODO:
 - implement early stopping # yes maby works
 - visualize the loss curve # working on
-- maby cross-validation
+- maby cross-validation 20% set size
 - hyperparameter optimization
     - pooling to decrease feature space
     - batch normalization, dropout
     - layer size, amout of layers, decreasing size layers, stagnating size layers
     - bias and hops: bias=False, k=2
-    - also look up in
+    - also look up in the dgl what else to optimize
 - different embeddings
+    - write fasta to send to michael # in work
+    - parse fasta into dictionary to receive in the embeddings function of HZ_full # in work
 - visualization of results
 - try out different machine learning models
