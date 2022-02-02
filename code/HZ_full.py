@@ -282,7 +282,7 @@ datasets = [""] # yannick
 dataset = "holo4k"
 data_folder = "../pdb_collection" # yannick
 
-create_fasta = False
+create_fasta = True
 if create_fasta:
     with open(os.path.join("..\\ML_data\\phospho.fasta"), "w") as fasta_file:
         to_write = ""
@@ -291,9 +291,9 @@ if create_fasta:
             structure = parser.get_structure(file[:-4], prot_file)
             # Get all residues
             residues = [res for res in structure.get_residues() if res.get_resname() in ACs]
-            residues_one_letter = [STANDARD_AMINO_ACIDS[res] for res in residues]
-            residues_one_letter = "\n".join(residues_one_letter)
-            to_write = (to_write,">",file[:-4],residues_one_letter,"\n")
+            residues_one_letter = [STANDARD_AMINO_ACIDS[res.get_resname()] for res in residues]
+            residues_one_letter = "".join(residues_one_letter)
+            to_write = (str(to_write)+str(">")+str(file[:-4])+"\n"+str(residues_one_letter)+"\n")
         fasta_file.writelines(to_write)
 print("fasta written")
 

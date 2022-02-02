@@ -2,7 +2,7 @@ TODO:
 - implement early stopping # yes maby works
 - visualize the loss curve # working on
 - maby cross-validation 20% set size
-- hyperparameter optimization
+- hyperparameter optimization (optimize by mcc)
     - pooling to decrease feature space
     - batch normalization, dropout
     - layer size, amout of layers, decreasing size layers, stagnating size layers
