@@ -2,6 +2,7 @@ TODO:
 - implement early stopping # yes maby works
 - visualize the loss curve # working on
 - maby cross-validation 20% set size
+- evaluate on per protein basis instead of whole set        !!!!!!! doable
 - hyperparameter optimization (optimize by mcc)
     - pooling to decrease feature space
     - batch normalization, dropout
