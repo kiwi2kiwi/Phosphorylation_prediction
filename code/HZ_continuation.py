@@ -168,27 +168,29 @@ import torch
 # "In[244]:"
 # Split into validation test
 
-# GRAPHS
-i = 0
-VALIDATION_GRAPHS = {}
-TEST_GRAPHS = {}
-for x, y in VAL_GRAPHS.items():
-    if i < len(VAL_GRAPHS):
-        VALIDATION_GRAPHS[x] = y
-    else:
-        TEST_GRAPHS[x] = y
-    i += 1
+# # GRAPHS
+# i = 0
+# VALIDATION_GRAPHS = {}
+# TEST_GRAPHS = {}
+# for x, y in VAL_GRAPHS.items():
+#     if i < len(VAL_GRAPHS):
+#         VALIDATION_GRAPHS[x] = y
+#     else:
+#         TEST_GRAPHS[x] = y
+#     i += 1
+#
+# # EMBEDDINGS
+# i = 0
+# VALIDATION_EMBS = {}
+# TEST_EMBS = {}
+# for x, y in VAL_GRAPHS.items():
+#     if i < len(VAL_GRAPHS):
+#         VALIDATION_GRAPHS[x] = y
+#     else:
+#         TEST_GRAPHS[x] = y
+#     i += 1
 
-# EMBEDDINGS
-i = 0
-VALIDATION_EMBS = {}
-TEST_EMBS = {}
-for x, y in VAL_GRAPHS.items():
-    if i < len(VAL_GRAPHS):
-        VALIDATION_GRAPHS[x] = y
-    else:
-        TEST_GRAPHS[x] = y
-    i += 1
+
 
 
 # "In[245]:"
@@ -271,55 +273,72 @@ from dgl.nn import SGConv as ConvLayer
 from dgl.nn import MaxPooling
 dgl.seed(1)
 
-
+layers = []
 class GCN(nn.Module):
 
     def __init__(self, layers):
         super(GCN, self).__init__()
         self.convs = []
         self.n_layers = len(layers) - 1
+        self.layers = layers
         # Hidden layers
-        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 2:
-            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 3:
-            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 4:
-            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 5:
-            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 6:
-            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 7:
-            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 8:
-            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
         if self.n_layers >= 9:
-            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
 
         # Output layer
-        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True, bias=False)#, k=2) #  , norm='both',
+        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
         h = F.relu(h)
-        n = layers[1]
+        n = self.layers[1]
         if self.n_layers >= 2:
             h = self.conv2(g, h)
             h = F.relu(h)
-            n = layers[2]
+            n = self.layers[2]
         if self.n_layers >= 3:
             h = self.conv3(g, h)
             h = F.relu(h)
-            n = layers[3]
+            n = self.layers[3]
         if self.n_layers >= 4:
             h = self.conv4(g, h)
             h = F.relu(h)
-            n = layers[4]
+            n = self.layers[4]
         if self.n_layers >= 5:
             h = self.conv5(g, h)
             h = F.relu(h)
-            n = layers[5]
+            n = self.layers[5]
+        if self.n_layers >= 6:
+            h = self.conv6(g, h)
+            h = F.relu(h)
+            n = self.layers[6]
+        if self.n_layers >= 7:
+            h = self.conv7(g, h)
+            h = F.relu(h)
+            n = self.layers[7]
+        if self.n_layers >= 8:
+            h = self.conv8(g, h)
+            h = F.relu(h)
+            n = self.layers[8]
+        if self.n_layers >= 9:
+            h = self.conv9(g, h)
+            h = F.relu(h)
+            n = self.layers[9]
         h = nn.BatchNorm1d(n)(h)
         h = self.output(g, h)
         h = F.softmax(h, 1)
@@ -348,7 +367,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-def train(g, model, n_epochs, metric_name, lr=1e-3):
+def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
     optimizer = torch.optim.Adam(model.parameters(), lr)
     # Get graph features, labels and masks
     features = g.ndata['feat']
@@ -358,7 +377,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3):
     test_mask = g.ndata['test_mask']
 
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=10, path="..\\ML_data\\ML_models_saves\\model.pt")
+    early_stopping = EarlyStopping(patience=10, path="..\\ML_data\\ML_models_saves\\model," + ",".join([str(i) for i in layers[1:]]) +".pt")
 
     # Set sample importance weights
     weights = []
@@ -400,16 +419,22 @@ def train(g, model, n_epochs, metric_name, lr=1e-3):
             train_metric, val_metric = get_metric(met_pred, met_labels, met_train_mask, met_val_mask, metric_name)
             print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(
                 e, loss, metric_name, train_metric, metric_name, val_metric))
-            if early_stopping.early_stop or e == n_epochs:
-                train_losses_np = [t.detach().numpy() for t in train_losses]
-                test_losses_np = [t.detach().numpy() for t in test_losses]
-                fig, ax = plt.subplots()
-                ax.plot(train_losses_np, "b", label = "training loss")
-                ax.plot(test_losses_np, "r", label = "testing loss")
-                fig.xlabel("Epochs")
-                ax.legend(loc="upper right")
-                plt.title("Graph neural network with early stopping")
-                plt.show()
+            if (early_stopping.early_stop or e == n_epochs):
+                collection_variance_train.append(train_metric)
+                collection_variance_val.append(val_metric)
+                if plot:
+                    train_losses_np = [t.detach().numpy() for t in train_losses]
+                    test_losses_np = [t.detach().numpy() for t in test_losses]
+                    fig, ax = plt.subplots()
+                    ax.plot(train_losses_np, "b", label = "training loss")
+                    ax.plot(test_losses_np, "r", label = "validation loss")
+                    plt.xlabel("Epochs")
+                    plt.ylabel("Loss")
+                    ax.legend(loc="upper right")
+                    plt.title("Graph neural network with early stopping\nLayers: " + ",".join([str(i) for i in layers]))
+                    plt.savefig("..\\ML_data\\visualization\\Loss_curve," + ",".join([str(i) for i in layers]) +".png")
+                    plt.show()
+                break
 
 
     return np.array(pred[val_mask]), np.array(labels[val_mask])
@@ -420,13 +445,30 @@ def train(g, model, n_epochs, metric_name, lr=1e-3):
 # #### Chen Dataset (200 train , 51 validation)
 
 # "In[323]:"
-
+def training_variance(seed):
+    global layers
+    dgl.seed(seed)
+    # Train the model
+    layers = [g.ndata['feat'].shape[1],64,32,16,32,16,32,16,8]#,64,32,16,8,4] # , 64] # yannick
+    print("model : ", layers)
+    model = GCN(layers)
+    pred, true = train(g, model, n_epochs=1000, metric_name="mcc", plot = False)
+    return
+collection_variance_train=[]
+collection_variance_val=[]
+for i in np.arange(20):
+    training_variance(i)
+print(collection_variance_train)
+# [0.1113592462532849, 0.11181563008245886, 0.11645334559110472, 0.08997140821901614, 0.10329130651693717, 0.10667082145480833, 0.07715457209832315, 0.12132487195355517, 0.07790149408883712, 0.10461794167743783, 0.11801133411773122, 0.1319150389818283, 0.11237177824509738, 0.08966444851847302, 0.11487949769947974, 0.11984510226330194, 0.11823941709710761, 0.11647686238103433, 0.10276590072702023, 0.1089156634793606]
+print(collection_variance_val)
+# [0.11060733867311799, 0.1254872740076211, 0.09762422517451981, 0.11611058430434937, 0.10248519963170413, 0.11403688342683564, 0.09199460563136903, 0.12161389596996831, 0.08981922065363947, 0.1160582416501688, 0.12067975658070608, 0.11288906500383715, 0.1056797428521422, 0.10803676192359889, 0.10370016358214018, 0.10018139108096676, 0.09842886970273623, 0.10762924516005686, 0.11212984218450317, 0.11768801774825711]
 
 # Train the model
-layers = [g.ndata['feat'].shape[1],32,8]#,64,32,16,8,4] # , 64] # yannick
+layers = [g.ndata['feat'].shape[1],64,32,16,32,16,32,16,8]#,64,32,16,8,4] # , 64] # yannick
 print("model : ", layers)
 model = GCN(layers)
-pred, true = train(g, model, n_epochs=500, metric_name="mcc")
+pred, true = train(g, model, n_epochs=1000, metric_name="mcc", plot = False)
+
 import cProfile
 cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.dat")
 import pstats
