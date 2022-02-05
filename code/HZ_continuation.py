@@ -39,14 +39,17 @@ import pickle
 TRAIN_GRAPHS = {}
 VAL_GRAPHS = {}
 TEST_GRAPHS = {}
+CV_GRAPHS = {}
 WD = Path(__file__).resolve().parents[1]
 train_graphs = WD / "ML_data" / "train_data" / "graphs"
 val_graphs = WD / "ML_data" / "val_data" / "graphs"
 test_graphs = WD / "ML_data" / "test_data" / "graphs"
+cv_graphs = WD / "ML_data" / "cv_data" / "graphs"
 
 train_embs = WD / "ML_data" / "train_data" / "embeddings" / emb_name
 val_embs = WD / "ML_data" / "val_data" / "embeddings" / emb_name
 test_embs = WD / "ML_data" / "test_data" / "embeddings" / emb_name
+cv_embs = WD / "ML_data" / "cv_data" / "embeddings" / emb_name
 for file in os.listdir(train_graphs):
     TRAIN_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(train_graphs, file), "rb"))
 print(f"Training graphs loaded : {len(TRAIN_GRAPHS)} items")
@@ -56,6 +59,9 @@ print(f"Validation graphs loaded : {len(VAL_GRAPHS)} items")
 for file in os.listdir(test_graphs):
     TEST_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(test_graphs, file), "rb"))
 print(f"Testing graphs loaded : {len(TEST_GRAPHS)} items")
+for file in os.listdir(cv_graphs):
+    CV_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(cv_graphs, file), "rb"))
+print(f"Training graphs loaded : {len(CV_GRAPHS)} items")
 
 # "In[26]:"
 
@@ -79,6 +85,7 @@ import pickle
 TRAIN_EMBS = {}
 VAL_EMBS = {}
 TEST_EMBS = {}
+CV_EMBS = {}
 for file in os.listdir(train_embs):
     TRAIN_EMBS[file[:-2]] = pickle.load(open(os.path.join(train_embs, file), "rb"))
 
@@ -93,10 +100,15 @@ for file in os.listdir(test_embs):
 
 print(f"Testing embeddings loaded : {len(TEST_EMBS)} items")
 
+for file in os.listdir(cv_embs):
+    CV_EMBS[file[:-2]] = pickle.load(open(os.path.join(cv_embs, file), "rb"))
+
+print(f"CV embeddings loaded : {len(CV_EMBS)} items")
+
 # "In[228]:"
 
 
-for em in TRAIN_EMBS.values():
+for em in CV_EMBS.values():
     print(em.shape)
     break
 
@@ -112,7 +124,20 @@ def create_dgl_graph(A, feats, labels, train, val, test):
     g.ndata["train_mask"] = torch.tensor(np.ones(A.shape[0]) == train)
     g.ndata["val_mask"] = torch.tensor(np.ones(A.shape[0]) == val)
     g.ndata["test_mask"] = torch.tensor(np.ones(A.shape[0]) == test)
+    return g
 
+def create_dgl_graph_cv(A, feats, labels, splits, test):
+    g = dgl.from_scipy(A)
+    feats = feats.reset_index(drop=True)
+    g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
+    g.ndata["label"] = torch.tensor(labels).long()
+    g.ndata["cv_train_mask"] = torch.tensor(np.ones(A.shape[0]) == splits[0])
+    g.ndata["cv_val"] = torch.tensor(np.ones(A.shape[0]) == splits[0])
+    # g.ndata["split_2_mask"] = torch.tensor(np.ones(A.shape[0]) == splits[1])
+    # g.ndata["split_3_mask"] = torch.tensor(np.ones(A.shape[0]) == splits[2])
+    # g.ndata["split_4_mask"] = torch.tensor(np.ones(A.shape[0]) == splits[3])
+    # g.ndata["split_5_mask"] = torch.tensor(np.ones(A.shape[0]) == splits[4])
+    g.ndata["test_mask"] = torch.tensor(np.ones(A.shape[0]) == test)
     return g
 
 
@@ -133,6 +158,27 @@ def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
             feats = feats[mode]
 
         g1 = create_dgl_graph(A, feats, labels, train, val, test)
+        g = dgl.batch([g, g1])
+
+    return g
+
+def create_dgl_data_cv(graphs, embeddings, cv_splits, test, onehot, mode="sum"):
+    g = dgl.graph([])
+    mode = "glove"
+    for prot in graphs.keys():
+        A, labels = graphs[prot]
+        feats = embeddings[prot]
+        if mode == "sum":
+            print("mode sum")
+            feats = np.sum(embeddings[prot], axis=0)
+        elif mode == "concat":
+            print("mode concat")
+            feats = embeddings[prot].reshape(embeddings[prot].shape[1], -1)
+        elif onehot: # yannick
+            print("onehot not using")
+            feats = feats[mode]
+
+        g1 = create_dgl_graph_cv(A, feats, labels, [0,1,2,3,4], test)
         g = dgl.batch([g, g1])
 
     return g
@@ -200,6 +246,7 @@ create = False
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
 test_embs_pth = os.path.join("../ML_data", "test_data", "graph")
+cv_embs_pth = os.path.join("../ML_data", "cv_data", "graph")
 if create:
     # Train
     onehot = False
@@ -214,11 +261,23 @@ if create:
     print("Creating Test set...")
     g_test = create_dgl_data(TEST_GRAPHS, TEST_EMBS, train=0, val=0, test=1, onehot=onehot)
     pickle.dump(g_test, open(os.path.join(test_embs_pth), "wb"))
+    # cv
+    print("Creating cv set...")
+    cv_splits = [0,1,2,3,4]
+    g_cv = create_dgl_data_cv(CV_GRAPHS, CV_EMBS, cv_splits, test=5, onehot=onehot)
+    pickle.dump(g_cv, open(os.path.join(cv_embs_pth), "wb"))
 else:
     g_train = pickle.load(open(train_embs_pth, "rb"))
     g_val = pickle.load(open(val_embs_pth, "rb"))
     g_test = pickle.load(open(test_embs_pth, "rb"))
-g = dgl.batch([g_train, g_val, g_test])
+    g_cv = pickle.load(open(cv_embs_pth, "rb"))
+
+cv = True
+if not cv:
+    g = dgl.batch([g_train, g_val, g_test])
+if cv:
+    g = dgl.batch([g_cv, g_test])
+
 
 # "In[246]:"
 
@@ -227,6 +286,7 @@ labels = g.ndata['label']
 train_mask = g.ndata['train_mask']
 val_mask = g.ndata['val_mask']
 test_mask = g.ndata['test_mask']
+
 print("Distribution of training labels (all proteins)")
 print(np.unique(np.array(labels[train_mask]), return_counts=True))
 print("Distribution of validation labels (all proteins)")
@@ -340,6 +400,7 @@ class GCN(nn.Module):
             h = F.relu(h)
             n = self.layers[9]
         h = nn.BatchNorm1d(n)(h)
+        # nn.Dropout
         h = self.output(g, h)
         h = F.softmax(h, 1)
         return h
@@ -367,7 +428,13 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
+cv_train_losses=[[0],[0],[0],[0],[0]]
+cv_val_losses=[[0],[0],[0],[0],[0]]
+
+def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4):
+    global cv_train_losses
+    global cv_val_losses
+    global cv
     optimizer = torch.optim.Adam(model.parameters(), lr)
     # Get graph features, labels and masks
     features = g.ndata['feat']
@@ -375,6 +442,8 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
     train_mask = g.ndata['train_mask']
     val_mask = g.ndata['val_mask']
     test_mask = g.ndata['test_mask']
+    cv_train_mask = g.ndata['cv_train_mask']
+    cv_val_mask = g.ndata['cv_val_mask']
 
     # initialize the early_stopping object
     early_stopping = EarlyStopping(patience=10, path="..\\ML_data\\ML_models_saves\\model," + ",".join([str(i) for i in layers[1:]]) +".pt")
@@ -382,7 +451,7 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
     # Set sample importance weights
     weights = []
     # n0 = sum(x == 0 for x in labels[train_mask])
-    n1 = sum(x == 1 for x in labels[train_mask])
+    n1 = sum(x == 1 for x in labels[train_mask])    # maby also adjust for cross validation weight size
     n2 = sum(x == 2 for x in labels[train_mask])
     train_losses=[]
     test_losses = []
@@ -396,11 +465,21 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
         # Note that you should only compute the losses of the nodes in the training set.
         weight = (torch.Tensor([0, n2, n1]))
         model.train()
-        loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
-        train_losses.append(loss)
-        model.eval()
-        val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
-        test_losses.append(val_loss)
+        if cv:
+            train_mask_obj # concatenate the splits into one object so that the loss can go over it at once
+            val_mask_obj
+            loss = nn.CrossEntropyLoss(weight)(logits[cv_train_mask].float(), labels[cv_train_mask].reshape(-1, ).long())
+            cv_train_losses[val_split].append(loss)
+            model.eval()
+            val_loss = nn.CrossEntropyLoss(weight)(logits[cv_val_mask].float(), labels[cv_val_mask].reshape(-1, ).long())
+            cv_val_losses[val_split].append(val_loss)
+
+        else:
+            loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
+            train_losses.append(loss)
+            model.eval()
+            val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
+            test_losses.append(val_loss)
 
         # Backward
         optimizer.zero_grad()
@@ -445,6 +524,20 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
 # #### Chen Dataset (200 train , 51 validation)
 
 # "In[323]:"
+def training_cv(val_split):
+    global layers
+    dgl.seed(1)
+    # Train the model
+    layers = [g.ndata['feat'].shape[1],64,32,16,32,16,32,16,8]#,64,32,16,8,4] # , 64] # yannick
+    print("model : ", layers)
+    model = GCN(layers)
+    pred, true = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
+    return
+
+val_splits=[0,1,2,3,4]
+for i in val_splits:
+    training_cv(i)
+
 def training_variance(seed):
     global layers
     dgl.seed(seed)

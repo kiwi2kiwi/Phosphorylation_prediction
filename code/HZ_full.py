@@ -409,10 +409,12 @@ n_test = int(n_data-n_val-n_train)
 train_indices = indices[:n_train]
 val_indices = indices[n_train:n_train+n_val]
 test_indices = indices[n_train+n_val:]
+cv_indices = indices[:n_train+n_val]
 
 trainset = [os.listdir(data_folder)[i] for i in train_indices]
 valset = [os.listdir(data_folder)[i] for i in val_indices]
 testset = [os.listdir(data_folder)[i] for i in test_indices]
+cvset = [os.listdir(data_folder)[i] for i in cv_indices]
 
 
 def make_folder(folder):
@@ -439,6 +441,7 @@ warnings.filterwarnings("ignore")
 train_seq = os.path.join("D:/data", dataset, "train_data", "sequences")
 val_seq = os.path.join("D:/data", dataset, "val_data", "sequences")
 test_seq = os.path.join("D:/data", dataset, "test_data", "sequences")
+cv_seq = os.path.join("D:/data", dataset, "cv_data", "sequences")
 
 # "In[18]:"
 
@@ -464,11 +467,13 @@ test_seq = os.path.join("D:/data", dataset, "test_data", "sequences")
 train_graphs = os.path.join("../ML_data", "train_data", "graphs")
 val_graphs = os.path.join("../ML_data", "val_data", "graphs")
 test_graphs = os.path.join("../ML_data", "test_data", "graphs")
+cv_graphs = os.path.join("../ML_data", "cv_data", "graphs")
 # "In[330]:"
 # "In[336]:"
 print(f"Training graphs : {n_train} elements")
 print(f"Validation graphs : {n_val} elements")
 print(f"Testing graphs : {n_test} elements")
+print(f"CV graphs : {(n_train+n_val)} elements")
 
 training_set_intervall_size = 20
 
@@ -492,15 +497,18 @@ def graph_generation(n, index_set, set_type, save_path):
 
 
 def generate_graphs():
-    # make_folder(train_graphs)
-    # make_folder(val_graphs)
-    # make_folder(test_graphs)
+    make_folder(train_graphs)
+    make_folder(val_graphs)
+    make_folder(test_graphs)
+    make_folder(cv_graphs)
     # "In[339]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
         graph_generation(batch_number, trainset, "Training", train_graphs)
         graph_generation(batch_number, valset, "Validation", val_graphs)
         graph_generation(batch_number, testset, "Testing", test_graphs)
+        graph_generation(batch_number, testset, "CV", cv_graphs)
+
         batch_number += 1
 
 
@@ -515,6 +523,7 @@ emb_name = "glove"
 train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
 val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
 test_embs = os.path.join("../ML_data", "test_data", "embeddings", emb_name)
+cv_embs = os.path.join("../ML_data", "cv_data", "embeddings", emb_name)
 
 # "In[349]:"
 
@@ -526,6 +535,7 @@ test_embs = os.path.join("../ML_data", "test_data", "embeddings", emb_name)
 print(f"Training embeddings : {n_train} elements")
 print(f"Validation embeddings : {n_val} elements")
 print(f"Testing embeddings : {n_test} elements")
+print(f"CV embeddings : {(n_train+n_val)} elements")
 
 
 # Create embeddings
@@ -543,15 +553,17 @@ def embedding_generation(n, index_set, set_type, save_path):
 
 
 def create_embeddings():
-    # make_folder(train_embs)
-    # make_folder(val_embs)
-    # make_folder(test_embs)
+    make_folder(train_embs)
+    make_folder(val_embs)
+    make_folder(test_embs)
+    make_folder(cv_embs)
     # "In[351]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
         embedding_generation(batch_number, trainset, "Training", train_embs)
         embedding_generation(batch_number, valset, "Validation", val_embs)
         embedding_generation(batch_number, testset, "Testing", test_embs)
+        embedding_generation(batch_number, cvset, "CV", test_embs)
         batch_number += 1
 
 create_embeddings()
