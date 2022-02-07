@@ -36,9 +36,6 @@ emb_name = "glove"
 from pathlib import Path
 import pickle
 
-cv = True
-cv_fold = 5
-
 TRAIN_GRAPHS = {}
 VAL_GRAPHS = {}
 TEST_GRAPHS = {}
@@ -59,10 +56,6 @@ print(f"Validation graphs loaded : {len(VAL_GRAPHS)} items")
 for file in os.listdir(test_graphs):
     TEST_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(test_graphs, file), "rb"))
 print(f"Testing graphs loaded : {len(TEST_GRAPHS)} items")
-
-if cv:
-    TRAIN_GRAPHS={**TRAIN_GRAPHS,**VAL_GRAPHS}
-
 
 # "In[26]:"
 
@@ -100,20 +93,18 @@ for file in os.listdir(test_embs):
 
 print(f"Testing embeddings loaded : {len(TEST_EMBS)} items")
 
-if cv:
-    TRAIN_EMBS={**TRAIN_EMBS,**VAL_EMBS}
+# "In[228]:"
+
+
+for em in TRAIN_EMBS.values():
+    print(em.shape)
+    break
+
 
 # "In[35]:"
 import tensorflow as tf
-total_feats = 0
-graph_number = 0
-train_graph_number = 0
-train_graph_feats = 0
-val_graph_number = 0
-val_graph_feats = 0
-test_graph_number = 0
-test_graph_feats = 0
-graph_lengths = {}
+train_graph_number=0
+graph_lengths={}
 def create_dgl_graph(A, feats, labels, train, val, test):
     g = dgl.from_scipy(A)
     feats = feats.reset_index(drop=True)
@@ -123,36 +114,11 @@ def create_dgl_graph(A, feats, labels, train, val, test):
     g.ndata["val_mask"] = torch.tensor(np.ones(A.shape[0]) == val)
     g.ndata["test_mask"] = torch.tensor(np.ones(A.shape[0]) == test)
     if test == 0:
-        global graph_number
-        global graph_lengths
-        graph_lengths[graph_number] = A.shape[0]
-        graph_number += 1
-        global total_feats
-        total_feats += labels.shape[0]
-    if train == 1:
         global train_graph_number
-        global train_graph_feats
-        #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
-        # global graph_lengths
-        # graph_lengths[train_graph_number] = A.shape[0]
-        train_graph_number += 1
-        train_graph_feats += labels.shape[0]
-    if val == 1:
-        global val_graph_number
-        global val_graph_feats
-        #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
-        # global graph_lengths
-        # graph_lengths[train_graph_number] = A.shape[0]
-        val_graph_number += 1
-        val_graph_feats += labels.shape[0]
-    if test == 1:
-        global test_graph_number
-        global test_graph_feats
-        #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
-        # global graph_lengths
-        # graph_lengths[train_graph_number] = A.shape[0]
-        test_graph_number += 1
-        test_graph_feats += labels.shape[0]
+        g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
+        global graph_lengths
+        graph_lengths[graph_number] = labels.shape[0]
+        graph_number += 1
     return g
 
 
@@ -199,13 +165,6 @@ A = scipy.sparse.csr_matrix(A)
 #A, labels, feats
 
 # "In[48]:"
-def make_folder(folder):
-    if os.path.exists(folder):
-        print("folder already existing:", str(folder))
-        shutil.rmtree(folder)
-        os.makedirs(folder)
-    else:
-        os.makedirs(folder)
 
 
 import torch
@@ -265,13 +224,7 @@ else:
     g_train = pickle.load(open(train_embs_pth, "rb"))
     g_val = pickle.load(open(val_embs_pth, "rb"))
     g_test = pickle.load(open(test_embs_pth, "rb"))
-
-
-if not cv:
-    g = dgl.batch([g_train, g_val, g_test])
-if cv:
-    g = dgl.batch([g_train, g_test])
-
+g = dgl.batch([g_train, g_val, g_test])
 
 # "In[246]:"
 
@@ -280,7 +233,6 @@ labels = g.ndata['label']
 train_mask = g.ndata['train_mask']
 val_mask = g.ndata['val_mask']
 test_mask = g.ndata['test_mask']
-
 print("Distribution of training labels (all proteins)")
 print(np.unique(np.array(labels[train_mask]), return_counts=True))
 print("Distribution of validation labels (all proteins)")
@@ -394,7 +346,6 @@ class GCN(nn.Module):
             h = F.relu(h)
             n = self.layers[9]
         h = nn.BatchNorm1d(n)(h)
-        # nn.Dropout
         h = self.output(g, h)
         h = F.softmax(h, 1)
         return h
@@ -422,39 +373,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-cv_train_losses=[[0],[0],[0],[0],[0]]
-cv_val_losses=[[0],[0],[0],[0],[0]]
-
-def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_folds = 5):
-    global cv_train_losses
-    global cv_val_losses
-    global cv
-    global train_graph_number
-    global graph_lengths
-    folds = []
-    print("training on nodes: " + str((g.ndata["train_mask"] == 1).sum()))
-    print("validating on nodes: " + str((g.ndata["val_mask"] == 1).sum()))
-    print("testing on nodes: " + str((g.ndata["test_mask"] == 1).sum()))
-    fold_size = train_graph_number / cv_folds
-    for i in np.arange(cv_folds):
-        start = round(i * fold_size)
-        end = round((i+1) * fold_size)
-#        if i == (cv_folds-1):
-#            end = graph_number
-        set_length = 0
-        for prot in np.arange(start, end):
-            set_length += graph_lengths[prot]
-        if val_split == i:
-            folds.append(torch.tensor(np.ones(set_length) == 0))
-        else:
-            folds.append(torch.tensor(np.ones(set_length) == 1))
-    train_mask = torch.cat(folds)
-    val_mask = torch.tensor(train_mask==False)
-
-    g.ndata["train_mask"] = train_mask
-    g.ndata["val_mask"] = val_mask
-    print("training on nodes: " + str((g.ndata["train_mask"] == 1).sum()))
-
+def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False):
     optimizer = torch.optim.Adam(model.parameters(), lr)
     # Get graph features, labels and masks
     features = g.ndata['feat']
@@ -469,7 +388,7 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_
     # Set sample importance weights
     weights = []
     # n0 = sum(x == 0 for x in labels[train_mask])
-    n1 = sum(x == 1 for x in labels[train_mask])    # maby also adjust for cross validation weight size
+    n1 = sum(x == 1 for x in labels[train_mask])
     n2 = sum(x == 2 for x in labels[train_mask])
     train_losses=[]
     test_losses = []
@@ -484,15 +403,10 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_
         weight = (torch.Tensor([0, n2, n1]))
         model.train()
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
+        train_losses.append(loss)
         model.eval()
         val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
-        if cv:
-            cv_train_losses[val_split].append(loss)
-            cv_val_losses[val_split].append(val_loss)
-
-        else:
-            train_losses.append(loss)
-            test_losses.append(val_loss)
+        test_losses.append(val_loss)
 
         # Backward
         optimizer.zero_grad()
@@ -537,21 +451,6 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_
 # #### Chen Dataset (200 train , 51 validation)
 
 # "In[323]:"
-def training_cv(val_split):
-    global layers
-    dgl.seed(1)
-    # Train the model
-    layers = [g.ndata['feat'].shape[1],64,32,16,32,16,32,16,8]#,64,32,16,8,4] # , 64] # yannick
-    print("Split used for validation: " + str(val_split))
-    print("model : ", layers)
-    model = GCN(layers)
-    pred, true = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
-    return
-
-val_splits=[0,1,2,3,4]
-for i in val_splits:
-    training_cv(i)
-
 def training_variance(seed):
     global layers
     dgl.seed(seed)
@@ -603,7 +502,3 @@ model = GCN(layers)
 pred, true = train(g, model, n_epochs=500, metric_name="mcc")
 
 # "In[ ]:"
-
-
-
-
