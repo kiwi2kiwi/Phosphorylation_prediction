@@ -242,7 +242,7 @@ import torch
 
 # "In[245]:"
 
-create = True
+create = False
 
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
@@ -451,28 +451,26 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     print("dgl testing on nodes   : " + str((g.ndata["test_mask"] == 1).sum()))
     fold_size = graph_number / cv_folds
     counter = 0
+    starting_index = -5
+    lastend = 0
     for i in np.arange(cv_folds):
         start = round(i * fold_size)
         end = round((i+1) * fold_size)
         set_length = 0
         for prot in np.arange(start, end):
             set_length += (graph_lengths[prot])[0]
+            if val_split == i:
+                name_position_dict[counter] = [lastend, (lastend + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 0]
+                lastend += graph_lengths[prot][0]
+                counter += 1
+            else:
+                name_position_dict[counter] = [lastend, (lastend + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 1]
+                lastend += graph_lengths[prot][0]
+                counter += 1
         if val_split == i:
-            if folds.__len__() == 0:
-                starting_index = 0
-            else:
-                starting_index = sum([lens.shape[0] for lens in folds])
-            name_position_dict[counter] = [starting_index, (starting_index + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 0]
             folds.append(torch.tensor(np.ones(set_length) == 0))
-            counter += 1
         else:
-            if folds.__len__() == 0:
-                starting_index = 0
-            else:
-                starting_index = sum([lens.shape[0] for lens in folds])
-            name_position_dict[counter] = [starting_index, (starting_index + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 1]
             folds.append(torch.tensor(np.ones(set_length) == 1))
-            counter += 1
     train_mask = torch.cat(folds)
     val_mask = torch.tensor(train_mask==False)
     train_mask = torch.cat([train_mask,torch.tensor(np.zeros(test_graph_feats) > 0)])
@@ -528,9 +526,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
         optimizer.step()
 
         early_stopping(loss, model)
-        #if early_stopping.early_stop:
-        #    print("Early stopping")
-        #    break
+
 
         if e % 5 == 0 or early_stopping.early_stop:
             # removing the impossible aa from the prediction
@@ -547,6 +543,8 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
                 #print("labels:" + str(met_labels[start:end]))
                 train_metric, val_metric = get_metric(met_pred[start:end], met_labels[start:end],
                                                       met_train_mask[start:end], met_val_mask[start:end], metric_name)
+                #print(*met_pred[start:end].numpy().flatten(), sep="")
+                print(*met_labels[start:end].numpy().flatten(), sep="")
                 pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":train_metric}, ignore_index=True)
             # print("validation mcc mean: " + str(np.mean(pP_eval["val_metric"])))
             # print("validation standard deviation of the population: " + str(np.std(pP_eval["val_metric"], ddof=0)))
