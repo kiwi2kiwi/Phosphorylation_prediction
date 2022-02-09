@@ -114,18 +114,18 @@ val_graph_feats = 0
 test_graph_number = 0
 test_graph_feats = 0
 graph_lengths = {}
-def create_dgl_graph(A, feats, labels, train, val, test):
+def create_dgl_graph(A, feats, labels, train, val, test, prot):
     g = dgl.from_scipy(A)
     feats = feats.reset_index(drop=True)
     g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
     g.ndata["label"] = torch.tensor(labels).long()
     g.ndata["train_mask"] = torch.tensor(np.ones(A.shape[0]) == train)
-    g.ndata["val_mask"] = torch.tensor(np.ones(A.shape[0]) == val)
-    g.ndata["test_mask"] = torch.tensor(np.ones(A.shape[0]) == test)
+    g.ndata["val_mask"]   = torch.tensor(np.ones(A.shape[0]) == val)
+    g.ndata["test_mask"]  = torch.tensor(np.ones(A.shape[0]) == test)
     if test == 0:
         global graph_number
         global graph_lengths
-        graph_lengths[graph_number] = A.shape[0]
+        graph_lengths[graph_number] = [A.shape[0], prot]
         graph_number += 1
         global total_feats
         total_feats += labels.shape[0]
@@ -172,7 +172,7 @@ def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
             print("onehot not using")
             feats = feats[mode]
 
-        g1 = create_dgl_graph(A, feats, labels, train, val, test)
+        g1 = create_dgl_graph(A, feats, labels, train, val, test, prot)
         g = dgl.batch([g, g1])
 
     return g
@@ -247,6 +247,7 @@ create = True
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
 test_embs_pth = os.path.join("../ML_data", "test_data", "graph")
+cv_supplements_pth = os.path.join("../ML_data", "cv_supplements")
 if create:
     # Train
     onehot = False
@@ -261,16 +262,21 @@ if create:
     print("Creating Test set...")
     g_test = create_dgl_data(TEST_GRAPHS, TEST_EMBS, train=0, val=0, test=1, onehot=onehot)
     pickle.dump(g_test, open(os.path.join(test_embs_pth), "wb"))
+
+    pickle.dump([graph_lengths, graph_number, test_graph_feats], open(os.path.join(cv_supplements_pth), "wb"))
 else:
     g_train = pickle.load(open(train_embs_pth, "rb"))
     g_val = pickle.load(open(val_embs_pth, "rb"))
     g_test = pickle.load(open(test_embs_pth, "rb"))
+    cv_s = pickle.load(open(cv_supplements_pth, "rb"))
+    graph_lengths, graph_number, test_graph_feats = cv_s[0], cv_s[1], cv_s[2]
 
 
-if not cv:
-    g = dgl.batch([g_train, g_val, g_test])
-if cv:
-    g = dgl.batch([g_train, g_test])
+g = dgl.batch([g_train, g_val, g_test])
+del g_train
+del g_val
+del g_test
+
 
 
 # "In[246]:"
@@ -321,6 +327,8 @@ def get_metric(pred, labels, train_mask, val_mask, name):
 
 # "In[324]:"
 
+def normalize(h):
+    return (h-h.mean(0))/h.std(0)
 
 # Graph convolution layer
 from dgl.nn import SGConv as ConvLayer
@@ -330,32 +338,32 @@ dgl.seed(1)
 layers = []
 class GCN(nn.Module):
 
-    def __init__(self, layers):
+    def __init__(self, layers, kernel_size):
         super(GCN, self).__init__()
         self.convs = []
         self.n_layers = len(layers) - 1
         self.layers = layers
         # Hidden layers
-        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+        self.conv1 = ConvLayer(layers[0], layers[1], allow_zero_in_degree=True, k=kernel_size[1])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 2:
-            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv2 = ConvLayer(layers[1], layers[2], allow_zero_in_degree=True, k=kernel_size[2])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 3:
-            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv3 = ConvLayer(layers[2], layers[3], allow_zero_in_degree=True, k=kernel_size[3])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 4:
-            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv4 = ConvLayer(layers[3], layers[4], allow_zero_in_degree=True, k=kernel_size[4])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 5:
-            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv5 = ConvLayer(layers[4], layers[5], allow_zero_in_degree=True, k=kernel_size[5])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 6:
-            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv6 = ConvLayer(layers[5], layers[6], allow_zero_in_degree=True, k=kernel_size[6])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 7:
-            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv7 = ConvLayer(layers[6], layers[7], allow_zero_in_degree=True, k=kernel_size[7])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 8:
-            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv8 = ConvLayer(layers[7], layers[8], allow_zero_in_degree=True, k=kernel_size[8])#, bias=False)#) #  , norm='both',
         if self.n_layers >= 9:
-            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+            self.conv9 = ConvLayer(layers[8], layers[9], allow_zero_in_degree=True, k=kernel_size[9])#, bias=False)#) #  , norm='both',
 
         # Output layer
-        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True)#, bias=False)#, k=2) #  , norm='both',
+        self.output = ConvLayer(layers[-1], 3, allow_zero_in_degree=True, k=kernel_size[-1])#, bias=False)#) #  , norm='both',
 
     def forward(self, g, in_feat):
         h = self.conv1(g, in_feat)
@@ -414,9 +422,8 @@ def slim_for_metrics(features, pred, labels, train_mask, val_mask):
     met_labels = torch.tensor(df_labels.to_numpy())
     met_train_mask = torch.tensor(df_train_mask.to_numpy())
     met_val_mask = torch.tensor(df_val_mask.to_numpy())
-    return met_pred, met_labels, met_train_mask, met_val_mask
+    return met_pred, met_labels, met_train_mask, met_val_mask, usable
 
-#"In[325]:"
 from EarlyStopping import EarlyStopping
 import matplotlib
 matplotlib.use("TkAgg")
@@ -425,31 +432,52 @@ import matplotlib.pyplot as plt
 cv_train_losses=[[0],[0],[0],[0],[0]]
 cv_val_losses=[[0],[0],[0],[0],[0]]
 
-def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_folds = 5):
+def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_folds = 5):
     global cv_train_losses
     global cv_val_losses
     global cv
-    global train_graph_number
+    global graph_number
     global graph_lengths
+    global train_graph_feats
+    global val_graph_feats
+    global test_graph_feats
+    name_position_dict = {}
     folds = []
-    print("training on nodes: " + str((g.ndata["train_mask"] == 1).sum()))
-    print("validating on nodes: " + str((g.ndata["val_mask"] == 1).sum()))
-    print("testing on nodes: " + str((g.ndata["test_mask"] == 1).sum()))
-    fold_size = train_graph_number / cv_folds
+    print("own counter training   : " + str(train_graph_feats))
+    print("own counter validating : " + str(val_graph_feats))
+    print("own counter testing    : " + str(test_graph_feats))
+    print("dgl training on nodes  : " + str((g.ndata["train_mask"] == 1).sum()))
+    print("dgl validating on nodes: " + str((g.ndata["val_mask"] == 1).sum()))
+    print("dgl testing on nodes   : " + str((g.ndata["test_mask"] == 1).sum()))
+    fold_size = graph_number / cv_folds
+    counter = 0
     for i in np.arange(cv_folds):
         start = round(i * fold_size)
         end = round((i+1) * fold_size)
-#        if i == (cv_folds-1):
-#            end = graph_number
         set_length = 0
         for prot in np.arange(start, end):
-            set_length += graph_lengths[prot]
+            set_length += (graph_lengths[prot])[0]
         if val_split == i:
+            if folds.__len__() == 0:
+                starting_index = 0
+            else:
+                starting_index = sum([lens.shape[0] for lens in folds])
+            name_position_dict[counter] = [starting_index, (starting_index + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 0]
             folds.append(torch.tensor(np.ones(set_length) == 0))
+            counter += 1
         else:
+            if folds.__len__() == 0:
+                starting_index = 0
+            else:
+                starting_index = sum([lens.shape[0] for lens in folds])
+            name_position_dict[counter] = [starting_index, (starting_index + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 1]
             folds.append(torch.tensor(np.ones(set_length) == 1))
+            counter += 1
     train_mask = torch.cat(folds)
     val_mask = torch.tensor(train_mask==False)
+    train_mask = torch.cat([train_mask,torch.tensor(np.zeros(test_graph_feats) > 0)])
+    val_mask = torch.cat([val_mask, torch.tensor(np.zeros(test_graph_feats) > 0)])
+
 
     g.ndata["train_mask"] = train_mask
     g.ndata["val_mask"] = val_mask
@@ -464,7 +492,7 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_
     test_mask = g.ndata['test_mask']
 
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=10, path="..\\ML_data\\ML_models_saves\\model," + ",".join([str(i) for i in layers[1:]]) +".pt")
+    early_stopping = EarlyStopping(patience=10, min_delta=0.001, path="..\\ML_data\\ML_models_saves\\model," + ",".join([str(i) for i in layers[1:]]) +".pt")
 
     # Set sample importance weights
     weights = []
@@ -506,14 +534,32 @@ def train(g, model, n_epochs, metric_name, lr=5e-3, plot=False, val_split=4, cv_
 
         if e % 5 == 0 or early_stopping.early_stop:
             # removing the impossible aa from the prediction
-            met_pred, met_labels, met_train_mask, met_val_mask = slim_for_metrics(features, pred, labels, train_mask, val_mask)
-            # Evaluation metric
-            train_metric, val_metric = get_metric(met_pred, met_labels, met_train_mask, met_val_mask, metric_name)
-            print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(
-                e, loss, metric_name, train_metric, metric_name, val_metric))
+            met_pred, met_labels, met_train_mask, met_val_mask, usable = slim_for_metrics(features, pred, labels, train_mask, val_mask)
+            # Evaluation metric # deppendict = {0: [0, 3, '2osu', 0], 1: [3, 6, '4ec9', 1], 2: [6, 9, '5uiq', 1], 3: [9, 12, '5o2c', 1], 4: [12, 15, '6fqm', 1]}
+            pP_eval = pd.DataFrame(columns=["name", "train_metric", "val_metric"])
+            for key in name_position_dict.keys():
+                value = name_position_dict[key]
+                start = value[0]
+                end = value[1]
+                name = value[2]
+                #print("metric on: " + name)
+                #print("predictions:" + str(met_pred[start:end]))
+                #print("labels:" + str(met_labels[start:end]))
+                train_metric, val_metric = get_metric(met_pred[start:end], met_labels[start:end],
+                                                      met_train_mask[start:end], met_val_mask[start:end], metric_name)
+                pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":train_metric}, ignore_index=True)
+            # print("validation mcc mean: " + str(np.mean(pP_eval["val_metric"])))
+            # print("validation standard deviation of the population: " + str(np.std(pP_eval["val_metric"], ddof=0)))
+            # print("validation standard error of the population: " + str(np.std(pP_eval["val_metric"], ddof=0) / np.sqrt(np.size(pP_eval["val_metric"]))))
+            # print("training mcc mean: " + str(np.mean(pP_eval["train_metric"])))
+            # print("validation standard deviation of the population: " + str(np.std(pP_eval["train_metric"], ddof=0)))
+            # print("validation standard error of the population: " + str(np.std(pP_eval["train_metric"], ddof=0) / np.sqrt(np.size(pP_eval["train_metric"]))))
+            # print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(e, loss, metric_name, train_metric, metric_name, val_metric))
+            print('In epoch {}, loss: {:.3f}, train mean {} : {:.3f} , val mean {} : {:.3f}'.format(
+                e, loss, metric_name, np.mean(pP_eval["train_metric"]), metric_name, np.mean(pP_eval["val_metric"])))
             if (early_stopping.early_stop or e == n_epochs):
-                collection_variance_train.append(train_metric)
-                collection_variance_val.append(val_metric)
+#                collection_variance_train.append(train_metric)
+#                collection_variance_val.append(val_metric)
                 if plot:
                     train_losses_np = [t.detach().numpy() for t in train_losses]
                     test_losses_np = [t.detach().numpy() for t in test_losses]
@@ -541,16 +587,51 @@ def training_cv(val_split):
     global layers
     dgl.seed(1)
     # Train the model
-    layers = [g.ndata['feat'].shape[1],64,32,16,32,16,32,16,8]#,64,32,16,8,4] # , 64] # yannick
+    layers = [g.ndata['feat'].shape[1],8,4]#,32,16,32,16,32,16,8] # , 64] # yannick
+    kernel_size = [2, 1, 1]
     print("Split used for validation: " + str(val_split))
     print("model : ", layers)
-    model = GCN(layers)
+    model = GCN(layers, kernel_size)
     pred, true = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
     return
 
 val_splits=[0,1,2,3,4]
 for i in val_splits:
     training_cv(i)
+
+#cv_train_losses=[[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])]]
+#cv_val_losses=[[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])]]
+
+fig, ax = plt.subplots()
+
+for i, ent in enumerate(cv_train_losses):
+    ent.pop(0)
+    cv_train_losses[i] = [t.detach().numpy() for t in ent]
+    ax.plot(cv_train_losses[i], "b", label="training loss")
+
+for i, ent in enumerate(cv_val_losses):
+    ent.pop(0)
+    cv_val_losses[i] = [t.detach().numpy() for t in ent]
+    ax.plot(cv_val_losses[i], "r", label="validation loss")
+
+stderr_val = [value[-1] for value in cv_val_losses]
+print("standard error of the sample: " + str(np.std(stderr_val, ddof=1) / np.sqrt(np.size(stderr_val))))
+print("standard deviation of the sample: " + str(np.std(stderr_val, ddof=1)))
+
+
+import matplotlib.patches as mpatches
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+red_patch = mpatches.Patch(color='red', label='validation loss')
+blue_patch = mpatches.Patch(color='blue', label='training loss')
+legend = ax.legend()
+legend.remove()
+ax.legend(handles=[red_patch, blue_patch])
+ax.legend(loc="upper right")
+plt.title("Graph neural network with early stopping\nCross-validation test\nLayers: " + ",".join([str(i) for i in layers]))
+plt.savefig("..\\ML_data\\visualization\\Cross-validation_Loss_curve," + ",".join([str(i) for i in layers]) +".png")
+plt.show()
+
 
 def training_variance(seed):
     global layers

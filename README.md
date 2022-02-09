@@ -10,3 +10,6 @@ This is done to speed up the contact map
 
 from the file 5dlt, the last residue has to be removed:
 HETATM 6575 CA    CA A 907
+
+Layer size is amount of filters
+hops is kernel size
