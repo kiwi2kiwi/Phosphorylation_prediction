@@ -17,3 +17,4 @@ TODO:
     - parse fasta into dictionary to receive in the embeddings function of HZ_full # in work
 - visualization of results
 - try out different machine learning models
+- write evaluation of a model
