@@ -59,8 +59,8 @@ for file in os.listdir(test_graphs):
     TEST_GRAPHS[file[:-2]] = pickle.load(open(os.path.join(test_graphs, file), "rb"))
 print(f"Testing graphs loaded : {len(TEST_GRAPHS)} items")
 
-if cv:
-    TRAIN_GRAPHS={**TRAIN_GRAPHS,**VAL_GRAPHS}
+# if cv:
+#     TRAIN_GRAPHS={**TRAIN_GRAPHS,**VAL_GRAPHS}
 
 
 # "In[26]:"
@@ -99,8 +99,8 @@ for file in os.listdir(test_embs):
 
 print(f"Testing embeddings loaded : {len(TEST_EMBS)} items")
 
-if cv:
-    TRAIN_EMBS={**TRAIN_EMBS,**VAL_EMBS}
+# if cv:
+#     TRAIN_EMBS={**TRAIN_EMBS,**VAL_EMBS}
 
 # "In[35]:"
 import tensorflow as tf
@@ -153,7 +153,6 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
         test_graph_number += 1
         test_graph_feats += labels.shape[0]
     return g
-
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
     g = dgl.graph([])
@@ -211,37 +210,10 @@ import torch
 
 #my_graph = create_dgl_graph(A, feats, labels, 1, 0, 0)
 #print(my_graph.ndata)
-# "In[244]:"
-# Split into validation test
-
-# # GRAPHS
-# i = 0
-# VALIDATION_GRAPHS = {}
-# TEST_GRAPHS = {}
-# for x, y in VAL_GRAPHS.items():
-#     if i < len(VAL_GRAPHS):
-#         VALIDATION_GRAPHS[x] = y
-#     else:
-#         TEST_GRAPHS[x] = y
-#     i += 1
-#
-# # EMBEDDINGS
-# i = 0
-# VALIDATION_EMBS = {}
-# TEST_EMBS = {}
-# for x, y in VAL_GRAPHS.items():
-#     if i < len(VAL_GRAPHS):
-#         VALIDATION_GRAPHS[x] = y
-#     else:
-#         TEST_GRAPHS[x] = y
-#     i += 1
-
-
-
 
 # "In[245]:"
 
-create = False
+create = True
 
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
@@ -375,24 +347,35 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
 
     starting_index = -5
     lastend = 0
-    for i in np.arange(cv_folds):
+    testset=False
+    for i in np.arange(cv_folds+1):
         start = round(i * fold_size)
         end = round((i+1) * fold_size)
+        if i == cv_folds+1:
+            testset = True
+            end = graph_lengths.__sizeof__()
         set_length = 0
         for prot in np.arange(start, end):
-            set_length += (graph_lengths[prot])[0]
-            if val_split == i:
+            if not testset:
+                set_length += (graph_lengths[prot])[0]
+            if val_split == i and not testset:
                 name_position_dict[counter] = [lastend, (lastend + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 0]
                 lastend += graph_lengths[prot][0]
                 counter += 1
-            else:
+            elif not testset:
                 name_position_dict[counter] = [lastend, (lastend + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 1]
+                lastend += graph_lengths[prot][0]
+                counter += 1
+            elif testset:
+                name_position_dict[counter] = [lastend, (lastend + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 2]
                 lastend += graph_lengths[prot][0]
                 counter += 1
         if val_split == i:
             folds.append(torch.tensor(np.ones(set_length) == 0))
         else:
             folds.append(torch.tensor(np.ones(set_length) == 1))
+    name_dict = os.path.join("../ML_data", "name_dict")
+    pickle.dump(name_position_dict, open(os.path.join(name_dict),"wb"))
     train_mask = torch.cat(folds)
     val_mask = torch.tensor(train_mask==False)
     train_mask = torch.cat([train_mask,torch.tensor(np.zeros(test_graph_feats) > 0)])
@@ -455,6 +438,8 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
 #            met_pred, met_labels, met_train_mask, met_val_mask, usable = slim_for_metrics(features, pred, labels, train_mask, val_mask)
             # Evaluation metric # deppendict = {0: [0, 3, '2osu', 0], 1: [3, 6, '4ec9', 1], 2: [6, 9, '5uiq', 1], 3: [9, 12, '5o2c', 1], 4: [12, 15, '6fqm', 1]}
             pP_eval = pd.DataFrame(columns=["name", "train_metric", "val_metric"])
+            train_metric_list = []
+            val_metric_list = []
             df_feat = pd.DataFrame(features.numpy())
             usable = df_feat[512] == 1
             pred_df = pd.DataFrame(pred)
@@ -470,21 +455,29 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
                 start = value[0]
                 end = value[1]
                 name = value[2]
+                if value[3] != 2: # not testing
 
-                temp_pred_df = pred_df.loc[start:end,:]
-                temp_labels_df = labels_df.loc[start:end, :]
-                temp_train_mask_df = train_mask_df.loc[start:end, :]
-                temp_val_mask_df = val_mask_df.loc[start:end, :]
-                pred_tp = torch.tensor(temp_pred_df.to_numpy())
-                labels_tp = torch.tensor(temp_labels_df.to_numpy())
-                train_mask_tp = torch.tensor(temp_train_mask_df.to_numpy())
-                val_mask_tp = torch.tensor(temp_val_mask_df.to_numpy())
-                #print("metric on: " + name)
-                #print("predictions:" + str(met_pred[start:end]))
-                #print("labels:" + str(met_labels[start:end]))
-                train_metric, val_metric = get_metric(pred_tp, labels_tp, train_mask_tp, val_mask_tp, metric_name)
-                #print(*met_pred[start:end].numpy().flatten(), sep="")
-                pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":val_metric}, ignore_index=True)
+                    temp_pred_df = pred_df.loc[start:end,:]
+                    temp_labels_df = labels_df.loc[start:end, :]
+                    temp_train_mask_df = train_mask_df.loc[start:end, :]
+                    temp_val_mask_df = val_mask_df.loc[start:end, :]
+                    pred_tp = torch.tensor(temp_pred_df.to_numpy())
+                    labels_tp = torch.tensor(temp_labels_df.to_numpy())
+                    train_mask_tp = torch.tensor(temp_train_mask_df.to_numpy())
+                    val_mask_tp = torch.tensor(temp_val_mask_df.to_numpy())
+                    #print("metric on: " + name)
+                    #print("predictions:" + str(met_pred[start:end]))
+                    #print("labels:" + str(met_labels[start:end]))
+                    train_metric, val_metric = get_metric(pred_tp, labels_tp, train_mask_tp, val_mask_tp, metric_name)
+                    if value[3] == 0:  # validation
+                        val_metric_list.append(val_metric)
+                    if value[3] == 1:  # training
+                        train_metric_list.append(train_metric)
+                    #print(*met_pred[start:end].numpy().flatten(), sep="")
+
+#                    pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":val_metric}, ignore_index=True)
+
+
 #                print(*labels.numpy().flatten(), sep="")
 #                print(*pred_tp.numpy().flatten(), sep="")
             # print("validation mcc mean: " + str(np.mean(pP_eval["val_metric"])))
@@ -494,8 +487,9 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
             # print("validation standard deviation of the population: " + str(np.std(pP_eval["train_metric"], ddof=0)))
             # print("validation standard error of the population: " + str(np.std(pP_eval["train_metric"], ddof=0) / np.sqrt(np.size(pP_eval["train_metric"]))))
             # print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(e, loss, metric_name, train_metric, metric_name, val_metric))
+            # print('In epoch {}, loss: {:.3f}, train mean {} : {:.3f} , val mean {} : {:.3f}'.format(e, loss, metric_name, np.mean(pP_eval["train_metric"]), metric_name, np.mean(pP_eval["val_metric"])))
             print('In epoch {}, loss: {:.3f}, train mean {} : {:.3f} , val mean {} : {:.3f}'.format(
-                e, loss, metric_name, np.mean(pP_eval["train_metric"]), metric_name, np.mean(pP_eval["val_metric"])))
+                e, loss, metric_name, np.mean(train_metric_list), metric_name, np.mean(val_metric_list)))
             if (early_stopping.early_stop or e == n_epochs):
 #                collection_variance_train.append(train_metric)
 #                collection_variance_val.append(val_metric)
@@ -522,6 +516,9 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
 # #### Chen Dataset (200 train , 51 validation)
 
 # "In[323]:"
+
+import GNN_architect
+
 def training_cv(val_split):
     global layers
     dgl.seed(1)
@@ -570,8 +567,6 @@ ax.legend(loc="upper right")
 plt.title("Graph neural network with early stopping\nCross-validation test\nLayers: " + ",".join([str(i) for i in layers]))
 plt.savefig("..\\ML_data\\visualization\\Cross-validation_Loss_curve," + ",".join([str(i) for i in layers]) +".png")
 plt.show()
-
-import GNN_architect
 
 def training_variance(seed):
     global layers

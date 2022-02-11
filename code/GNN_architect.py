@@ -84,3 +84,12 @@ class GCN(nn.Module):
         h = self.output(g, h)
         h = F.softmax(h, 1)
         return h
+
+'''
+gid = graph_lengths.values()
+gid = list(gid)
+ngid = np.array(gid)
+set(ngid[:,1].tolist()).__len__()
+from collections import Counter
+Counter(ngid[:,1].tolist())
+'''
