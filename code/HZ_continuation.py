@@ -451,6 +451,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     print("dgl testing on nodes   : " + str((g.ndata["test_mask"] == 1).sum()))
     fold_size = graph_number / cv_folds
     counter = 0
+
     starting_index = -5
     lastend = 0
     for i in np.arange(cv_folds):
@@ -530,22 +531,41 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
 
         if e % 5 == 0 or early_stopping.early_stop:
             # removing the impossible aa from the prediction
-            met_pred, met_labels, met_train_mask, met_val_mask, usable = slim_for_metrics(features, pred, labels, train_mask, val_mask)
+#            met_pred, met_labels, met_train_mask, met_val_mask, usable = slim_for_metrics(features, pred, labels, train_mask, val_mask)
             # Evaluation metric # deppendict = {0: [0, 3, '2osu', 0], 1: [3, 6, '4ec9', 1], 2: [6, 9, '5uiq', 1], 3: [9, 12, '5o2c', 1], 4: [12, 15, '6fqm', 1]}
             pP_eval = pd.DataFrame(columns=["name", "train_metric", "val_metric"])
+            df_feat = pd.DataFrame(features.numpy())
+            usable = df_feat[512] == 1
+            pred_df = pd.DataFrame(pred)
+            labels_df = pd.DataFrame(labels.numpy())
+            train_mask_df = pd.DataFrame(train_mask)
+            val_mask_df = pd.DataFrame(val_mask)
+            pred_df = pred_df[usable]
+            labels_df = labels_df[usable]
+            train_mask_df = train_mask_df[usable]
+            val_mask_df = val_mask_df[usable]
             for key in name_position_dict.keys():
                 value = name_position_dict[key]
                 start = value[0]
                 end = value[1]
                 name = value[2]
+
+                temp_pred_df = pred_df.loc[start:end,:]
+                temp_labels_df = labels_df.loc[start:end, :]
+                temp_train_mask_df = train_mask_df.loc[start:end, :]
+                temp_val_mask_df = val_mask_df.loc[start:end, :]
+                pred_tp = torch.tensor(temp_pred_df.to_numpy())
+                labels_tp = torch.tensor(temp_labels_df.to_numpy())
+                train_mask_tp = torch.tensor(temp_train_mask_df.to_numpy())
+                val_mask_tp = torch.tensor(temp_val_mask_df.to_numpy())
                 #print("metric on: " + name)
                 #print("predictions:" + str(met_pred[start:end]))
                 #print("labels:" + str(met_labels[start:end]))
-                train_metric, val_metric = get_metric(met_pred[start:end], met_labels[start:end],
-                                                      met_train_mask[start:end], met_val_mask[start:end], metric_name)
+                train_metric, val_metric = get_metric(pred_tp, labels_tp, train_mask_tp, val_mask_tp, metric_name)
                 #print(*met_pred[start:end].numpy().flatten(), sep="")
-                print(*met_labels[start:end].numpy().flatten(), sep="")
-                pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":train_metric}, ignore_index=True)
+                pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":val_metric}, ignore_index=True)
+#                print(*labels.numpy().flatten(), sep="")
+#                print(*pred_tp.numpy().flatten(), sep="")
             # print("validation mcc mean: " + str(np.mean(pP_eval["val_metric"])))
             # print("validation standard deviation of the population: " + str(np.std(pP_eval["val_metric"], ddof=0)))
             # print("validation standard error of the population: " + str(np.std(pP_eval["val_metric"], ddof=0) / np.sqrt(np.size(pP_eval["val_metric"]))))
