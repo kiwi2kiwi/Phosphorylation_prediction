@@ -109,5 +109,6 @@ for key in name_position_dict.keys():
         # print("metric on: " + name)
         # print("predictions:" + str(met_pred[start:end]))
         # print("labels:" + str(met_labels[start:end]))
-        train_metric, val_metric = get_metric(pred_tp, labels_tp, test_mask_tp, "mcc")
-        testing_metric_list.append()
+        test_metric = get_metric(pred_tp, labels_tp, test_mask_tp, "mcc")
+        testing_metric_list.append(test_metric)
+print("test")

@@ -121,7 +121,7 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
     g.ndata["train_mask"] = torch.tensor(np.ones(A.shape[0]) == train)
     g.ndata["val_mask"]   = torch.tensor(np.ones(A.shape[0]) == val)
     g.ndata["test_mask"]  = torch.tensor(np.ones(A.shape[0]) == test)
-    if test == 0:
+    if True:
         global graph_number
         global graph_lengths
         graph_lengths[graph_number] = [A.shape[0], prot]
@@ -342,7 +342,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     print("dgl training on nodes  : " + str((g.ndata["train_mask"] == 1).sum()))
     print("dgl validating on nodes: " + str((g.ndata["val_mask"] == 1).sum()))
     print("dgl testing on nodes   : " + str((g.ndata["test_mask"] == 1).sum()))
-    fold_size = graph_number / cv_folds
+    fold_size = (train_graph_number+val_graph_number) / cv_folds
     counter = 0
 
     starting_index = -5
@@ -351,12 +351,14 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     for i in np.arange(cv_folds+1):
         start = round(i * fold_size)
         end = round((i+1) * fold_size)
-        if i == cv_folds+1:
+        if i == cv_folds:
             testset = True
-            end = graph_lengths.__sizeof__()
+            end = graph_lengths.__len__()
         set_length = 0
         for prot in np.arange(start, end):
             if not testset:
+                if prot == 360:
+                    print("stop")
                 set_length += (graph_lengths[prot])[0]
             if val_split == i and not testset:
                 name_position_dict[counter] = [lastend, (lastend + (graph_lengths[prot])[0]), (graph_lengths[prot])[1], 0]
@@ -523,8 +525,8 @@ def training_cv(val_split):
     global layers
     dgl.seed(1)
     # Train the model
-    layers = [g.ndata['feat'].shape[1],8,4]#,32,16,32,16,32,16,8] # , 64] # yannick
-    kernel_size = [2, 1, 1]
+    layers = [g.ndata['feat'].shape[1],64]#,32,16,32,16,32,16,8] # , 64] # yannick
+    kernel_size = [2, 1]
     print("Split used for validation: " + str(val_split))
     print("model : ", layers)
     model = GNN_architect.GCN(layers, kernel_size)
