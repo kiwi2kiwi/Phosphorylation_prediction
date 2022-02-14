@@ -19,6 +19,7 @@ class EarlyStopping():
         self.path = path
         self.best_loss = None
         self.early_stop = False
+        self.current_best = False
     def __call__(self, val_loss, model):
         if self.best_loss == None:
             self.best_loss = val_loss
@@ -26,6 +27,7 @@ class EarlyStopping():
             self.best_loss = val_loss
             # reset counter if validation loss improves
             self.counter = 0
+            self.current_best = True
             pickle.dump(model, open(os.path.join(self.path), "wb"))
         elif self.best_loss - val_loss < self.min_delta:
             self.counter += 1
@@ -33,3 +35,4 @@ class EarlyStopping():
             if self.counter >= self.patience:
                 print('INFO: Early stopping')
                 self.early_stop = True
+            self.current_best = False

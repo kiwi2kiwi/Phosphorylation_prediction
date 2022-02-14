@@ -4,6 +4,17 @@
 #plt.scatter(x=[1,2,3], y = [3,2,1])
 #plt.show()
 
+import numpy as np
+from sklearn.metrics import recall_score, accuracy_score, precision_score, f1_score, confusion_matrix
+from sklearn.metrics import matthews_corrcoef as MCC
+print(MCC(np.array([1,1,1,2,1,1]), np.array([1,1,1,1,1,2])))
+print(accuracy_score(np.array([1,1,1,2,1,1]), np.array([1,1,1,1,1,2])))
+print(f1_score(np.array([1,1,1,2,1,1]), np.array([1,1,1,1,1,2])))
+cm = confusion_matrix(np.array([1,1,1,2,1,1]), np.array([1,1,1,1,1,2]))
+cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+
+
 import bio_embeddings.embed.prottrans_albert_bfd_embedder as prottrans_albert_bfd_embedder
 Embedder = prottrans_albert_bfd_embedder.ProtTransAlbertBFDEmbedder()
 embedded = Embedder.embed("MLSD")

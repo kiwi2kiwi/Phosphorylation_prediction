@@ -39,11 +39,14 @@ del g_val
 del g_test
 
 
-from sklearn.metrics import recall_score, accuracy_score, precision_score
+from sklearn.metrics import recall_score, accuracy_score, precision_score, f1_score, confusion_matrix
 from sklearn.metrics import matthews_corrcoef as MCC
 
 
 def get_metric(pred, labels, test_mask, name):
+    # this makes it so that class 2, phosphorylated residue, is the true label
+    pred = (pred == 2)
+    labels = (labels == 2)
     # Accuracy
     if name == "accuracy":
         train_acc = accuracy_score(np.array(labels[test_mask]), np.array(pred[test_mask]))
@@ -93,6 +96,16 @@ labels_df = labels_df[usable]
 test_mask_df = test_mask_df[usable]
 
 testing_metric_list = []
+labels_bool = (labels_df == 2)
+pred_bool = (pred_df == 2)
+
+print("MCC on whole set: " + str(MCC(labels_bool, pred_bool)))
+print("accuracy_score on whole set: " + str(accuracy_score(labels_bool, pred_bool)))
+print("f1_score on whole set: " + str(f1_score(labels_bool, pred_bool)))
+cm = confusion_matrix(labels_bool, pred_bool)
+cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+print("normalized confusion matrix:\n" + str(cmn))
+
 
 for key in name_position_dict.keys():
     value = name_position_dict[key]

@@ -13,3 +13,6 @@ HETATM 6575 CA    CA A 907
 
 Layer size is amount of filters
 hops is kernel size
+
+
+the true label is a phosphorylated residue

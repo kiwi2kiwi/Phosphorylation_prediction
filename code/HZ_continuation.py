@@ -272,6 +272,9 @@ from sklearn.metrics import matthews_corrcoef as MCC
 
 
 def get_metric(pred, labels, train_mask, val_mask, name):
+    # this makes it so that class 2, phosphorylated residue, is the true label
+    pred = (pred == 2)
+    labels = (labels == 2)
     # Accuracy
     if name == "accuracy":
         train_acc = accuracy_score(np.array(labels[train_mask]), np.array(pred[train_mask]))
@@ -324,9 +327,11 @@ import matplotlib.pyplot as plt
 
 cv_train_losses=[[0],[0],[0],[0],[0]]
 cv_val_losses=[[0],[0],[0],[0],[0]]
+cv_total_mcc_val = []
 
 def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_folds = 5):
     global cv_train_losses
+    global cv_total_mcc_val
     global cv_val_losses
     global cv
     global graph_number
@@ -397,14 +402,14 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     test_mask = g.ndata['test_mask']
 
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=10, min_delta=0.001, path="..\\ML_data\\ML_models_saves\\model," + ",".join([str(i) for i in layers[1:]]) +".pt")
+    early_stopping = EarlyStopping(patience=10, min_delta=0.001, path="..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "val_split" + str(val_split)) +".pt")
 
     # Set sample importance weights
     weights = []
     # n0 = sum(x == 0 for x in labels[train_mask])
     n1 = sum(x == 1 for x in labels[train_mask])    # maby also adjust for cross validation weight size
     n2 = sum(x == 2 for x in labels[train_mask])
-    train_losses=[]
+    train_losses = []
     test_losses = []
     for e in range(n_epochs + 1):
         print("Epoch: ", e)
@@ -452,6 +457,9 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
             labels_df = labels_df[usable]
             train_mask_df = train_mask_df[usable]
             val_mask_df = val_mask_df[usable]
+            train_mcc, val_mcc = get_metric(pred_df.to_numpy(), labels_df.to_numpy(), train_mask_df.to_numpy(), val_mask_df.to_numpy(), metric_name)
+            print("whole set mcc train, val: " + str(train_mcc) + str(val_mcc))
+
             for key in name_position_dict.keys():
                 value = name_position_dict[key]
                 start = value[0]
@@ -495,6 +503,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
             if (early_stopping.early_stop or e == n_epochs):
 #                collection_variance_train.append(train_metric)
 #                collection_variance_val.append(val_metric)
+                cv_total_mcc_val.append(val_mcc)
                 if plot:
                     train_losses_np = [t.detach().numpy() for t in train_losses]
                     test_losses_np = [t.detach().numpy() for t in test_losses]
@@ -525,8 +534,8 @@ def training_cv(val_split):
     global layers
     dgl.seed(1)
     # Train the model
-    layers = [g.ndata['feat'].shape[1],64]#,32,16,32,16,32,16,8] # , 64] # yannick
-    kernel_size = [2, 1]
+    layers = [g.ndata['feat'].shape[1],16]#,32,16,32,16,32,16,8] # , 64] # yannick
+    kernel_size = [1, 1]
     print("Split used for validation: " + str(val_split))
     print("model : ", layers)
     model = GNN_architect.GCN(layers, kernel_size)
@@ -537,6 +546,7 @@ val_splits=[0,1,2,3,4]
 for i in val_splits:
     training_cv(i)
 
+print("cv_total_mcc: " + str(cv_total_mcc_val))
 #cv_train_losses=[[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])]]
 #cv_val_losses=[[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])]]
 
