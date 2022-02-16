@@ -298,6 +298,29 @@ def get_metric(pred, labels, train_mask, val_mask, name):
         val_mcc = MCC(np.array(labels[val_mask]), np.array(pred[val_mask]))
         return train_mcc, val_mcc
 
+def get_single_metric(pred, labels, val_mask, name):
+    # this makes it so that class 2, phosphorylated residue, is the true label
+    pred = (pred == 2)
+    labels = (labels == 2)
+    # Accuracy
+    if name == "accuracy":
+        val_acc = accuracy_score(np.array(labels[val_mask]), np.array(pred[val_mask]))
+        return val_acc
+
+    # Recall
+    if name == "recall":
+        val_rec = recall_score(np.array(labels[val_mask]), np.array(pred[val_mask]), average='macro')
+        return val_rec
+
+    # Precision
+    if name == "precision":
+        val_prec = precision_score(np.array(labels[val_mask]), np.array(pred[val_mask]), average='macro')
+        return val_prec
+    # Matthews Correlation Coefficient (MCC)
+    if name == "mcc":
+        val_mcc = MCC(np.array(labels[val_mask]), np.array(pred[val_mask]))
+        return val_mcc
+
 
 # "In[324]:"
 
@@ -329,7 +352,7 @@ cv_train_losses=[[0],[0],[0],[0],[0]]
 cv_val_losses=[[0],[0],[0],[0],[0]]
 cv_total_mcc_val = []
 
-def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_folds = 5):
+def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_folds = 5):
     global cv_train_losses
     global cv_total_mcc_val
     global cv_val_losses
@@ -402,7 +425,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     test_mask = g.ndata['test_mask']
 
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=10, min_delta=0.001, path="..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "val_split" + str(val_split)) +".pt")
+    early_stopping = EarlyStopping(patience=10, min_delta=0.0001, path="..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "val_split" + str(val_split)) +".pt")
 
     # Set sample importance weights
     weights = []
@@ -411,6 +434,19 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
     n2 = sum(x == 2 for x in labels[train_mask])
     train_losses = []
     test_losses = []
+
+    labels_df = pd.DataFrame(labels.numpy())
+    df_feat = pd.DataFrame(features.numpy())
+    val_mask_df = pd.DataFrame(val_mask)
+    train_mask_df = pd.DataFrame(train_mask)
+    usable = df_feat[512] == 1
+    labels_df = labels_df[usable]
+    train_mask_df = train_mask_df[usable]
+    val_mask_df = val_mask_df[usable]
+    labels_np = labels_df.to_numpy()
+    train_mask_np = train_mask_df.to_numpy()
+    val_mask_np = val_mask_df.to_numpy()
+
     for e in range(n_epochs + 1):
         print("Epoch: ", e)
         # Forward
@@ -437,7 +473,12 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
         loss.backward()
         optimizer.step()
 
-        early_stopping(loss, model)
+        pred_df = pd.DataFrame(pred)
+        pred_df = pred_df[usable]
+        pred_np = pred_df.to_numpy()
+        val_mcc = get_single_metric(pred_np, labels_np, val_mask_np, metric_name)
+        early_stopping(1-val_mcc, model)
+        # early_stopping(loss, model)
 
 
         if e % 5 == 0 or early_stopping.early_stop:
@@ -447,49 +488,40 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
             pP_eval = pd.DataFrame(columns=["name", "train_metric", "val_metric"])
             train_metric_list = []
             val_metric_list = []
-            df_feat = pd.DataFrame(features.numpy())
-            usable = df_feat[512] == 1
-            pred_df = pd.DataFrame(pred)
-            labels_df = pd.DataFrame(labels.numpy())
-            train_mask_df = pd.DataFrame(train_mask)
-            val_mask_df = pd.DataFrame(val_mask)
-            pred_df = pred_df[usable]
-            labels_df = labels_df[usable]
-            train_mask_df = train_mask_df[usable]
-            val_mask_df = val_mask_df[usable]
-            train_mcc, val_mcc = get_metric(pred_df.to_numpy(), labels_df.to_numpy(), train_mask_df.to_numpy(), val_mask_df.to_numpy(), metric_name)
+            train_mcc, val_mcc = get_metric(pred_np, labels_np, train_mask_np, val_mask_np, metric_name)
             print("whole set mcc train, val: " + str(train_mcc) + str(val_mcc))
+            per_protein_metric = False
+            if per_protein_metric:
+                for key in name_position_dict.keys():
+                    value = name_position_dict[key]
+                    start = value[0]
+                    end = value[1]
+                    name = value[2]
+                    if value[3] != 2: # not testing
 
-            for key in name_position_dict.keys():
-                value = name_position_dict[key]
-                start = value[0]
-                end = value[1]
-                name = value[2]
-                if value[3] != 2: # not testing
-
-                    temp_pred_df = pred_df.loc[start:end,:]
-                    temp_labels_df = labels_df.loc[start:end, :]
-                    temp_train_mask_df = train_mask_df.loc[start:end, :]
-                    temp_val_mask_df = val_mask_df.loc[start:end, :]
-                    pred_tp = torch.tensor(temp_pred_df.to_numpy())
-                    labels_tp = torch.tensor(temp_labels_df.to_numpy())
-                    train_mask_tp = torch.tensor(temp_train_mask_df.to_numpy())
-                    val_mask_tp = torch.tensor(temp_val_mask_df.to_numpy())
-                    #print("metric on: " + name)
-                    #print("predictions:" + str(met_pred[start:end]))
-                    #print("labels:" + str(met_labels[start:end]))
-                    train_metric, val_metric = get_metric(pred_tp, labels_tp, train_mask_tp, val_mask_tp, metric_name)
-                    if value[3] == 0:  # validation
-                        val_metric_list.append(val_metric)
-                    if value[3] == 1:  # training
-                        train_metric_list.append(train_metric)
+                        temp_pred_df = pred_df.loc[start:end,:]
+                        temp_labels_df = labels_df.loc[start:end, :]
+                        temp_train_mask_df = train_mask_df.loc[start:end, :]
+                        temp_val_mask_df = val_mask_df.loc[start:end, :]
+                        pred_tp = torch.tensor(temp_pred_df.to_numpy())
+                        labels_tp = torch.tensor(temp_labels_df.to_numpy())
+                        train_mask_tp = torch.tensor(temp_train_mask_df.to_numpy())
+                        val_mask_tp = torch.tensor(temp_val_mask_df.to_numpy())
+                        #print("metric on: " + name)
+                        #print("predictions:" + str(met_pred[start:end]))
+                        #print("labels:" + str(met_labels[start:end]))
+                        train_metric, val_metric = get_metric(pred_tp, labels_tp, train_mask_tp, val_mask_tp, metric_name)
+                        if value[3] == 0:  # validation
+                            val_metric_list.append(val_metric)
+                        if value[3] == 1:  # training
+                            train_metric_list.append(train_metric)
                     #print(*met_pred[start:end].numpy().flatten(), sep="")
+    #                    pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":val_metric}, ignore_index=True)
+    #                print(*labels.numpy().flatten(), sep="")
+    #                print(*pred_tp.numpy().flatten(), sep="")
 
-#                    pP_eval = pP_eval.append({"name":name, "train_metric":train_metric, "val_metric":val_metric}, ignore_index=True)
 
 
-#                print(*labels.numpy().flatten(), sep="")
-#                print(*pred_tp.numpy().flatten(), sep="")
             # print("validation mcc mean: " + str(np.mean(pP_eval["val_metric"])))
             # print("validation standard deviation of the population: " + str(np.std(pP_eval["val_metric"], ddof=0)))
             # print("validation standard error of the population: " + str(np.std(pP_eval["val_metric"], ddof=0) / np.sqrt(np.size(pP_eval["val_metric"]))))
@@ -498,8 +530,8 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
             # print("validation standard error of the population: " + str(np.std(pP_eval["train_metric"], ddof=0) / np.sqrt(np.size(pP_eval["train_metric"]))))
             # print('In epoch {}, loss: {:.3f}, train {} : {:.3f} , val {} : {:.3f}'.format(e, loss, metric_name, train_metric, metric_name, val_metric))
             # print('In epoch {}, loss: {:.3f}, train mean {} : {:.3f} , val mean {} : {:.3f}'.format(e, loss, metric_name, np.mean(pP_eval["train_metric"]), metric_name, np.mean(pP_eval["val_metric"])))
-            print('In epoch {}, loss: {:.3f}, train mean {} : {:.3f} , val mean {} : {:.3f}'.format(
-                e, loss, metric_name, np.mean(train_metric_list), metric_name, np.mean(val_metric_list)))
+            # print('In epoch {}, loss: {:.3f}, train mean {} : {:.3f} , val mean {} : {:.3f}'.format(e, loss, metric_name, np.mean(train_metric_list), metric_name, np.mean(val_metric_list)))
+            print('In epoch {}, loss: {:.3f}, val {} : {:.3f}'.format(e, loss, metric_name, val_mcc))
             if (early_stopping.early_stop or e == n_epochs):
 #                collection_variance_train.append(train_metric)
 #                collection_variance_val.append(val_metric)
@@ -519,7 +551,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
                 break
 
 
-    return np.array(pred[val_mask]), np.array(labels[val_mask])
+    return val_mcc#np.array(pred[val_mask]), np.array(labels[val_mask])
 
 
 # ## Baseline (onehot encoding)
@@ -530,21 +562,44 @@ def train(g, model, n_epochs, metric_name, lr=1e-2, plot=False, val_split=4, cv_
 
 import GNN_architect
 
-def training_cv(val_split):
+def training_cv(val_split, hyperparameter):
     global layers
     dgl.seed(1)
     # Train the model
-    layers = [g.ndata['feat'].shape[1],16]#,32,16,32,16,32,16,8] # , 64] # yannick
-    kernel_size = [1, 1]
+    layers = [g.ndata['feat'].shape[1]]#,hyperparameter]#,16]#,32,16,32,16,32,16,8] # , 64] # yannick
+    [layers.append(lay) for lay in hyperparameter]
+    kernel_size = [1 for i in layers]
     print("Split used for validation: " + str(val_split))
     print("model : ", layers)
     model = GNN_architect.GCN(layers, kernel_size)
-    pred, true = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
-    return
+    #pred, true = \
+    val_mcc = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
+    del model
+    return val_mcc
 
-val_splits=[0,1,2,3,4]
-for i in val_splits:
-    training_cv(i)
+
+def start_comparison(hyperparameter):
+    cv_val_results = []
+    val_splits=[0,1,2,3,4]
+    for i in val_splits:
+        for seed in [1,2,3,4,5]:
+            dgl.seed(seed)
+            cv_val_results.append(training_cv(i, hyperparameter))
+    return cv_val_results
+
+layer_sizes = [[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
+hyperparameter_dict = {}
+for idx, comparable in enumerate(layer_sizes):
+    hyperparameter_dict[idx] = start_comparison(comparable)
+
+print(hyperparameter_dict)
+
+fig, ax = plt.subplots()
+import seaborn as sns
+sns.set_theme(style="ticks") #, palette="pastel")
+sns.boxplot(data=list(hyperparameter_dict.values()))
+
+print("finished with hyperparameter analysis")
 
 print("cv_total_mcc: " + str(cv_total_mcc_val))
 #cv_train_losses=[[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])],[0,torch.tensor([1]),torch.tensor([1])]]

@@ -7,10 +7,11 @@ TODO:
 - mcc on whole set
 - accuracy average on per protein level
 - hyperparameter optimization (optimize by mcc)
-    - pooling to decrease feature space
-    - batch normalization, dropout
+    - optimize contact map
     - layer size, amout of layers, decreasing size layers, stagnating size layers
+    - batch normalization, dropout
     - bias and hops: bias=False, k=2
+    - pooling to decrease feature space
     - also look up in the dgl what else to optimize
 - different embeddings
     - write fasta to send to michael # in work
@@ -18,3 +19,39 @@ TODO:
 - visualization of results
 - try out different machine learning models
 - write evaluation of a model
+
+
+{0: [0.09747789851620604, 0.11532436310274068, 0.09715075973951239, 0.08355509567338286, 0.09768530058694007], 1: [0.08741347448492688, 0.11515579504275544, 0.0955984207192374, 0.08682474040560688, 0.11029947645187851], 2: [0.051428926063499726, 0.06944054146949558, 0.08337483715991283, -0.002784341032220035, 0.1139951814782207], 3: [0.08604624606203969, 0.11605984565610257, 0.0810188268457919, 0.05492257015697615, 0.05563535797142088], 4: [0.04973956846847321, 0.10319364742703188, -0.04196835780028543, -2.640375745782989e-05, 0.03668322398472445]}
+val mccs of the first hyperparameter test. no change in hyperparameter, just cross validation and different seeds:
+[0.08810151519903515,
+ 0.09299373027416875,
+ 0.08483697524708889,
+ 0.09037581487986611,
+ 0.09597154247486579,
+ 0.11715455347115374,
+ 0.11153903272312739,
+ 0.11842815618893136,
+ 0.1093738140347444,
+ 0.12357822744619419,
+ 0.09080933806368587,
+ 0.07768108600614976,
+ 0.07690509238771477,
+ 0.08045536163249753,
+ 0.08710069876124296,
+ 0.08913991269266204,
+ 0.07763719824213175,
+ 0.07984428713062765,
+ 0.0664021851728117,
+ 0.06613581422016714,
+ 0.12447369235784002,
+ 0.1073701355295224,
+ 0.09725351661215852]
+
+ sortierbar nach validation splits mit:
+
+
+tstdict = {0:[],1:[],2:[],3:[],4:[]}
+for id, entry in enumerate(cv_val_results):
+    place = tstdict[id % 5]
+    place.append(entry)
+    tstdict[id % 5] = place
