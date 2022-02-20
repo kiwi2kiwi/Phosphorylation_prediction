@@ -587,7 +587,9 @@ def start_comparison(hyperparameter):
             cv_val_results.append(training_cv(i, hyperparameter))
     return cv_val_results
 
-layer_sizes = [[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
+#layer_sizes = [[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
+#layer_sizes = [[64,64,32,32],[32,32,16,16],[16,16,8,8]]
+layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]
 hyperparameter_dict = {}
 for idx, comparable in enumerate(layer_sizes):
     hyperparameter_dict[idx] = start_comparison(comparable)
