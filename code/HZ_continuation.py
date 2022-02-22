@@ -449,6 +449,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
 
     for e in range(n_epochs + 1):
         print("Epoch: ", e)
+        model.train()
         # Forward
         logits = model(g, features)
         # Compute prediction
@@ -456,7 +457,6 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
         # Compute loss
         # Note that you should only compute the losses of the nodes in the training set.
         weight = (torch.Tensor([0, n2, n1]))
-        model.train()
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
         model.eval()
         val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
@@ -468,6 +468,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
             train_losses.append(loss)
             test_losses.append(val_loss)
 
+        model.train()
         # Backward
         optimizer.zero_grad()
         loss.backward()
@@ -551,7 +552,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
                 break
 
 
-    return val_mcc#np.array(pred[val_mask]), np.array(labels[val_mask])
+    return 1-early_stopping.best_loss#val_mcc#np.array(pred[val_mask]), np.array(labels[val_mask])
 
 
 # ## Baseline (onehot encoding)
@@ -591,7 +592,8 @@ def start_comparison(hyperparameter):
 #layer_sizes = [[64,64,32,32],[32,32,16,16],[16,16,8,8]]
 #layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]
 #layer_sizes = [[256,128,64,32],[512,32]]
-layer_sizes = [[512,256,128,64,32],[512]]
+#layer_sizes = [[512,256,128,64,32],[512]]
+layer_sizes = [[1024,512,512,256,256,128,64,32],[512]]
 hyperparameter_dict = {}
 for idx, comparable in enumerate(layer_sizes):
     hyperparameter_dict[idx] = start_comparison(comparable)
