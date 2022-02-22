@@ -16,3 +16,5 @@ hops is kernel size
 
 
 the true label is a phosphorylated residue
+
+for prediction, start: parse_new_pdb.py and then emb_graph_new_pdb.py

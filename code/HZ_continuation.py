@@ -590,7 +590,8 @@ def start_comparison(hyperparameter):
 #layer_sizes = [[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
 #layer_sizes = [[64,64,32,32],[32,32,16,16],[16,16,8,8]]
 #layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]
-layer_sizes = [[256,128,64,32],[512,32]]
+#layer_sizes = [[256,128,64,32],[512,32]]
+layer_sizes = [[512,256,128,64,32],[512]]
 hyperparameter_dict = {}
 for idx, comparable in enumerate(layer_sizes):
     hyperparameter_dict[idx] = start_comparison(comparable)

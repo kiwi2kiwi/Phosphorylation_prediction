@@ -63,11 +63,7 @@ from bio_embeddings.embed.glove_embedder import GloveEmbedder
 
 EMBEDDERS={#"onehot":OneHotEncodingEmbedder(),#"seqvec":SeqVecEmbedder(),
           "glove":GloveEmbedder()}#, "bert":ProtTransBertBFDEmbedder()}
-# yannick
-#embedder1 = GloveEmbedder()
-#embedder = OneHotEncodingEmbedder()
-#print(embedder1.embed("MLSD").shape)
-#print(embedder.embed("MLSD").shape)
+
 
 # embedder = OneHotEncodingEmbedder()
 # embedder.embed("MLSDKLSQD").shape
@@ -113,25 +109,6 @@ def are_connected(A, residues, th):
                         if distance < th:
                             A[i_num, j_num] = 1
     return A
-    # Check all atoms in the first residue and get their coordinates
-    # for atom1 in res1.get_unpacked_list():
-    #     coord1 = atom1.get_coord()
-    #     # if some atom is a central carbon atom take its coordinates
-    #     if atom1.get_name() == "CA":
-    #         break
-    #
-    # for atom2 in res2.get_unpacked_list():
-    #     coord2 = atom2.get_coord()
-    #     # if some atom is a central carbon atom take its coordinates
-    #     if atom2.get_name() == "CA":
-    #         break
-
-    # Check distance
-    # distance = np.linalg.norm(coord1 - coord2)
-    # if distance < th:
-    #     return 1
-
-
 
 # Check ligandability of a residue
 def is_ligandable(res, ligs_atoms, th):
@@ -180,15 +157,15 @@ def get_graph(data_folder, file):
     A = are_connected(A, residues, th=6)  # Threshold = 6 Angstroms
     labels = np.zeros((n_res,1))
 
-    for idx, residue_structured in enumerate(residues):
-        if label_dict[file[:-4]].__contains__(float(residue_structured.id[1])):
-            labels[idx] = 2
-            true_labels += 1
-        elif residue_structured.get_resname() in ["THR", "TYR", "SER"]:
-            labels[idx] = 1
-            false_labels += 1
-        else:
-            impossible_labels += 1
+    # for idx, residue_structured in enumerate(residues):
+    #     if label_dict[file[:-4]].__contains__(float(residue_structured.id[1])):
+    #         labels[idx] = 2
+    #         true_labels += 1
+    #     elif residue_structured.get_resname() in ["THR", "TYR", "SER"]:
+    #         labels[idx] = 1
+    #         false_labels += 1
+    #     else:
+    #         impossible_labels += 1
 
     return scipy.sparse.csr_matrix(A), labels
 
@@ -375,7 +352,7 @@ def generate_graphs():
     graph_generation(predictionset, prediction_graphs)
 
 
-# generate_graphs()
+generate_graphs()
 
 # ### Embeddings
 
