@@ -583,7 +583,7 @@ def start_comparison(hyperparameter):
     cv_val_results = []
     val_splits=[0,1,2,3,4]
     for i in val_splits:
-        for seed in [1,2,3,4,5]:
+        for seed in [1,2]:#,3,4,5]:
             dgl.seed(seed)
             cv_val_results.append(training_cv(i, hyperparameter))
     return cv_val_results
@@ -593,7 +593,8 @@ def start_comparison(hyperparameter):
 #layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]
 #layer_sizes = [[256,128,64,32],[512,32]]
 #layer_sizes = [[512,256,128,64,32],[512]]
-layer_sizes = [[1024,512,512,256,256,128,64,32],[512]]
+#layer_sizes = [[512,256,128,64,32],[512]]
+layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32]]
 hyperparameter_dict = {}
 for idx, comparable in enumerate(layer_sizes):
     hyperparameter_dict[idx] = start_comparison(comparable)
