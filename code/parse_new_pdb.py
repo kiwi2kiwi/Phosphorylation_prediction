@@ -117,7 +117,7 @@ def modifypdb(file, main_chain, modelid):
     with open(iop_file, 'a') as iop:
         iopfile = iop
 
-        iopfile.write((structure.id+ "\t" + main_chain + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\t" + str(linewrite_p_able) + "\n"))
+        iopfile.write((structure.id+ "\t" + main_chain + "\t" + str(sequence_start) + "\t" + str(sequence_end) + "\t" + str(linewrite_p_able) + "\t" + str(modelid) + "\n"))
     io.set_structure(structure)
     io.save(str(WD/"ML_data"/"parsed_new_pdbs"/(structure.id+".txt")), preserve_atom_numbering = True)
 

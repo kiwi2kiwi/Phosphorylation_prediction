@@ -563,15 +563,15 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
 
 import GNN_architect
 
-def training_cv(val_split, hyperparameter):
+def training_cv(val_split):
     global layers
     dgl.seed(1)
     # Train the model
-    layers = [g.ndata['feat'].shape[1]]#,hyperparameter]#,16]#,32,16,32,16,32,16,8] # , 64] # yannick
-    [layers.append(lay) for lay in hyperparameter]
-    kernel_size = [1 for i in layers]
+    layers = [g.ndata['feat'].shape[1],512,256,128,64,32]#,hyperparameter]#,16]#,32,16,32,16,32,16,8] # , 64] # yannick
+    #[layers.append(lay) for lay in hyperparameter]
+    kernel_size = [2,1,1,1,1,1]
     print("Split used for validation: " + str(val_split))
-    print("model : ", layers)
+    print("model : ", kernel_size)
     model = GNN_architect.GCN(layers, kernel_size)
     #pred, true = \
     val_mcc = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
@@ -579,13 +579,13 @@ def training_cv(val_split, hyperparameter):
     return val_mcc
 
 
-def start_comparison(hyperparameter):
+def start_comparison():
     cv_val_results = []
     val_splits=[0,1,2,3,4]
     for i in val_splits:
-        for seed in [1,2]:#,3,4,5]:
+        for seed in [1,2,3,4,5]:
             dgl.seed(seed)
-            cv_val_results.append(training_cv(i, hyperparameter))
+            cv_val_results.append(training_cv(i))
     return cv_val_results
 
 #layer_sizes = [[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
@@ -594,9 +594,14 @@ def start_comparison(hyperparameter):
 #layer_sizes = [[256,128,64,32],[512,32]]
 #layer_sizes = [[512,256,128,64,32],[512]]
 #layer_sizes = [[512,256,128,64,32],[512]]
-layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32]]
+#layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32]]
+kernel_sizes = [[2,1,1,1,1,1],[2,2,1,1,1,1],[3,2,1,1,1,1]]
 hyperparameter_dict = {}
-for idx, comparable in enumerate(layer_sizes):
+
+hyperparameter_dict[0] = start_comparison()
+print(hyperparameter_dict)
+
+for idx, comparable in enumerate(kernel_sizes):
     hyperparameter_dict[idx] = start_comparison(comparable)
 
 print(hyperparameter_dict)

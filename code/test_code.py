@@ -4,6 +4,21 @@
 #plt.scatter(x=[1,2,3], y = [3,2,1])
 #plt.show()
 
+
+from pathlib import Path
+import math
+from Bio.PDB import *
+io = PDBIO()
+# PDB parser
+parser = PDBParser()
+# SeqIO parser (getting sequences)
+from Bio import SeqIO
+import os
+WD = Path(__file__).resolve().parents[1]
+
+
+
+
 import numpy as np
 from sklearn.metrics import recall_score, accuracy_score, precision_score, f1_score, confusion_matrix
 from sklearn.metrics import matthews_corrcoef as MCC
@@ -41,16 +56,7 @@ foo1()
 foo1()
 print(var)
 
-from pathlib import Path
-import math
-from Bio.PDB import *
-io = PDBIO()
-# PDB parser
-parser = PDBParser()
-# SeqIO parser (getting sequences)
-from Bio import SeqIO
-import os
-WD = Path(__file__).resolve().parents[1]
+
 
 for file in os.listdir((WD/"demo")):
     structure = parser.get_structure(file[:-4], (WD / "demo" / file))

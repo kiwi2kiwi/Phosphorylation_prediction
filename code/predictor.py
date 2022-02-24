@@ -58,6 +58,7 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
     g = dgl.from_scipy(A)
     feats = feats.reset_index(drop=True)
     g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
+    g.ndata["feat2"] = torch.tensor(feats[feats.columns].values)
     return g
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
@@ -151,49 +152,41 @@ def predictor(g, model):
     #usable = usable.iloc[:,0]
     boolean_list_negative = usable==False
     pred[boolean_list_negative] = 0
+    print((torch.tensor([1, 2, 1, 2]) == 2).nonzero(as_tuple=True)[0].detach().numpy())
+    with open(WD / "phos_info" / "info_on_new_pdb_phos.txt", "r") as iop:
+        line = iop.readline()
+        line = line.split()
+        modelid = float(line[5])
+        chainid = line[1]
+        availables = list(map(float,line[4].split(",")))
+    for idx, i in enumerate(pred):
+        if i == 0 and boolean_list_negative[idx] == False:
+            pred[idx] = 1
+    result_possibles = (pred != 0)
+    ava = torch.tensor(availables)
+    to_select = ava[(pred[result_possibles] == 2)].detach().numpy()
+    to_select_negative = ava[(pred[result_possibles] == 1)].detach().numpy()
+    indices_sel = "[" + ",".join(map(str, map(int, to_select))) + "]"
+    indices_sel_negative = "[" + ",".join(map(str, map(int, to_select_negative))) + "]"
+    print("the red residues are predicted to be phosphorylated, and the blue ones are unphosphorylated THR, TYR, SER")
+    print("load the protein and paste this into the pymol console to see the predicted residues")
+    print("show surface")
+    print("color green")#, 7tvs")
+    print("select resi "+indices_sel)
+    print("color red, sele")
+    print("select resi "+indices_sel_negative)
+    print("color blue, sele")
     print(pred)
-    #
-    # pred_df = pd.DataFrame(pred)
-    # pred_df = pred_df[usable]
-    # pred_np = pred_df.to_numpy()
-    #
-    # # removing the impossible aa from the prediction
-    # met_pred, met_labels, met_train_mask, met_val_mask, usable = slim_for_metrics(features, pred, labels, train_mask, val_mask)
-    # # Evaluation metric # deppendict = {0: [0, 3, '2osu', 0], 1: [3, 6, '4ec9', 1], 2: [6, 9, '5uiq', 1], 3: [9, 12, '5o2c', 1], 4: [12, 15, '6fqm', 1]}
-    # pP_eval = pd.DataFrame(columns=["name", "train_metric", "val_metric"])
-    # train_metric_list = []
-    # val_metric_list = []
-    # print("whole set mcc train, val: " + str(train_mcc) + str(val_mcc))
-    # per_protein_metric = False
-    # if per_protein_metric:
-    #     for key in name_position_dict.keys():
-    #         value = name_position_dict[key]
-    #         start = value[0]
-    #         end = value[1]
-    #         name = value[2]
-    #         if value[3] != 2: # not testing
-    #
-    #             temp_pred_df = pred_df.loc[start:end,:]
-    #             temp_labels_df = labels_df.loc[start:end, :]
-    #             temp_train_mask_df = train_mask_df.loc[start:end, :]
-    #             temp_val_mask_df = val_mask_df.loc[start:end, :]
-    #             pred_tp = torch.tensor(temp_pred_df.to_numpy())
-    #             labels_tp = torch.tensor(temp_labels_df.to_numpy())
-    #             train_mask_tp = torch.tensor(temp_train_mask_df.to_numpy())
-    #             val_mask_tp = torch.tensor(temp_val_mask_df.to_numpy())
 
 
-# ## Baseline (onehot encoding)
 
-# #### Chen Dataset (200 train , 51 validation)
-
-# "In[323]:"
 
 import GNN_architect
 
 dgl.seed(1)
 # model,8,4.pt
 model_name = "model,512,256,128,64,32val_split0.pt"
+#model_name = "model,8val_split0.pt"
 modelpath = WD / "ML_data" / "ML_models_saves" / model_name
 model = pickle.load(open(modelpath,"rb"))
 #GNN_architect.GCN(layers, kernel_size)
