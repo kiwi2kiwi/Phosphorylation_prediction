@@ -47,13 +47,12 @@ from Bio import SeqIO
 
 # # Onehot embedding working
 # from bio_embeddings.embed.one_hot_encoding_embedder import OneHotEncodingEmbedder
-from bio_embeddings.embed import OneHotEncodingEmbedder # yannick
+# from bio_embeddings.embed import OneHotEncodingEmbedder # yannick
 
 # # SeqVec
 # from bio_embeddings.embed.seqvec_embedder import SeqVecEmbedder
 
-# # Glove working
-from bio_embeddings.embed.glove_embedder import GloveEmbedder
+
 
 # # Word2Vec
 # from bio_embeddings.embed.word2vec_embedder import Word2VecEmbedder
@@ -68,17 +67,22 @@ from bio_embeddings.embed.glove_embedder import GloveEmbedder
 #import bio_embeddings.embed.prottrans_xlnet_uniref100_embedder
 #help(bio_embeddings.embed.prottrans_xlnet_uniref100_embedder.ProtTransXLNetUniRef100Embedder)
 
-EMBEDDERS={"onehot":OneHotEncodingEmbedder(),#"seqvec":SeqVecEmbedder(),
-          "glove":GloveEmbedder()}#, "bert":ProtTransBertBFDEmbedder()}
-# yannick
-embedder1 = GloveEmbedder()
-embedder = OneHotEncodingEmbedder()
-print(embedder1.embed("MLSD").shape)
-print(embedder.embed("MLSD").shape)
 
-embedder = OneHotEncodingEmbedder()
-embedder.embed("MLSDKLSQD").shape
-embedder.embed("MLSDMLKSMFLKS").shape
+# yannick
+# embedder1 = GloveEmbedder()
+# embedder = OneHotEncodingEmbedder()
+# print(embedder1.embed("MLSD").shape)
+# print(embedder.embed("MLSD").shape)
+#
+# embedder = OneHotEncodingEmbedder()
+# embedder.embed("MLSDKLSQD").shape
+# embedder.embed("MLSDMLKSMFLKS").shape
+
+import pickle as pkl
+from pathlib import Path
+WD = Path(__file__).resolve().parents[1]
+
+
 
 true_labels = 0
 false_labels = 0
@@ -205,9 +209,14 @@ import h5py
 embedding_dictionary = {}
 embedding_source = "internal"
 if embedding_source == "external":
-    print("missing external")
-
-    # TODO open external h5py file and put residues in dictionary
+    data = np.load(WD / "ML_data" / "external_embeddigs" / "phospho_bert_emb.npy", allow_pickle=True)
+    for i in data:
+        embedding_dictionary[i[0]] = i[1]
+else:
+    # # Glove working
+    from bio_embeddings.embed.glove_embedder import GloveEmbedder
+    EMBEDDERS = {  # "onehot":OneHotEncodingEmbedder(),#"seqvec":SeqVecEmbedder(),
+        "glove": GloveEmbedder()}  # , "bert":ProtTransBertBFDEmbedder()}
 
 def get_embeddings(data_folder, file, emb_name):
     prot_file = os.path.join(data_folder, file)
@@ -234,7 +243,7 @@ def get_embeddings(data_folder, file, emb_name):
     else:
         embedding = EMBEDDERS[emb_name].embed(sequence)
     embedding = pd.DataFrame(embedding)
-    embedding[-1] = valid
+    embedding[embedding.shape[1]] = valid
     embedding[""] = index_list
     embedding = embedding.set_index("")
     embedding.index.name = None
@@ -243,10 +252,6 @@ def get_embeddings(data_folder, file, emb_name):
         embedding = embedding_twister(sequence, emb_name)
     return embedding
 
-# yannick
-import pickle as pkl
-from pathlib import Path
-WD = Path(__file__).resolve().parents[1]
 
 label_dict = {}
 with open(WD / "phos_info" / "info_on_phos.txt","r") as iop:
@@ -282,7 +287,7 @@ datasets = [""] # yannick
 dataset = "holo4k"
 data_folder = "../pdb_collection" # yannick
 
-create_fasta = True
+create_fasta = False
 if create_fasta:
     with open(os.path.join("..\\ML_data\\phospho.fasta"), "w") as fasta_file:
         to_write = ""
@@ -523,7 +528,6 @@ emb_name = "glove"
 train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
 val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
 test_embs = os.path.join("../ML_data", "test_data", "embeddings", emb_name)
-cv_embs = os.path.join("../ML_data", "cv_data", "embeddings", emb_name)
 
 # "In[349]:"
 
@@ -556,18 +560,17 @@ def create_embeddings():
     make_folder(train_embs)
     make_folder(val_embs)
     make_folder(test_embs)
-    make_folder(cv_embs)
     # "In[351]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
         embedding_generation(batch_number, trainset, "Training", train_embs)
         embedding_generation(batch_number, valset, "Validation", val_embs)
         embedding_generation(batch_number, testset, "Testing", test_embs)
-        embedding_generation(batch_number, cvset, "CV", test_embs)
+        # embedding_generation(batch_number, cvset, "CV", test_embs)
         batch_number += 1
 
 create_embeddings()
 
-
+print("end")
 # "In[22]:"
 

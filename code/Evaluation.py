@@ -31,7 +31,7 @@ g_val = pickle.load(open(val_embs_pth, "rb"))
 g_test = pickle.load(open(test_embs_pth, "rb"))
 cv_s = pickle.load(open(cv_supplements_pth, "rb"))
 name_position_dict = pickle.load(open(os.path.join(name_dict), "rb"))
-graph_lengths, graph_number, test_graph_feats = cv_s[0], cv_s[1], cv_s[2]
+
 
 g = dgl.batch([g_train, g_val, g_test])
 del g_train
@@ -76,8 +76,9 @@ labels = g.ndata['label']
 train_mask = g.ndata['train_mask']
 val_mask = g.ndata['val_mask']
 test_mask = g.ndata['test_mask']
-
-model = pickle.load(open(os.path.join("..\\ML_data\\ML_models_saves\\model,8,4.pt"), "rb"))
+#
+#model,8,4.pt
+model = pickle.load(open(os.path.join("..\\ML_data\\ML_models_saves\\model,2048,1024,512,256,128,64,32val_split0.pt"), "rb"))
 # evaluation mode
 model.eval()
 # Forward
@@ -87,7 +88,7 @@ pred = logits.argmax(1)
 
 pP_eval = pd.DataFrame(columns=["name", "train_metric", "val_metric"])
 df_feat = pd.DataFrame(features.numpy())
-usable = df_feat[512] == 1
+usable = df_feat[df_feat.shape[1]-1] == 1
 pred_df = pd.DataFrame(pred)
 labels_df = pd.DataFrame(labels.numpy())
 test_mask_df = pd.DataFrame(test_mask)

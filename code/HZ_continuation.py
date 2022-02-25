@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore")
 # supplements from previous script
 #train_graphs = os.path.join("../ML_data", "train_data", "graphs")
 #val_graphs = os.path.join("../ML_data", "val_data", "graphs")
-emb_name = "glove"
+emb_name = "bert"
 #train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
 #val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
 
@@ -82,22 +82,7 @@ labels.shape
 
 import pickle
 
-TRAIN_EMBS = {}
-VAL_EMBS = {}
-TEST_EMBS = {}
-for file in os.listdir(train_embs):
-    TRAIN_EMBS[file[:-2]] = pickle.load(open(os.path.join(train_embs, file), "rb"))
 
-print(f"Training embeddings loaded : {len(TRAIN_EMBS)} items")
-for file in os.listdir(val_embs):
-    VAL_EMBS[file[:-2]] = pickle.load(open(os.path.join(val_embs, file), "rb"))
-
-print(f"Validation embeddings loaded : {len(VAL_EMBS)} items")
-
-for file in os.listdir(test_embs):
-    TEST_EMBS[file[:-2]] = pickle.load(open(os.path.join(test_embs, file), "rb"))
-
-print(f"Testing embeddings loaded : {len(TEST_EMBS)} items")
 
 # if cv:
 #     TRAIN_EMBS={**TRAIN_EMBS,**VAL_EMBS}
@@ -116,8 +101,8 @@ graph_lengths = {}
 def create_dgl_graph(A, feats, labels, train, val, test, prot):
     g = dgl.from_scipy(A)
     feats = feats.reset_index(drop=True)
-    g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
-    g.ndata["label"] = torch.tensor(labels).long()
+    g.ndata["feat"] = torch.tensor(feats[feats.columns].values)#.long()
+    g.ndata["label"] = torch.tensor(labels)#.long()
     g.ndata["train_mask"] = torch.tensor(np.ones(A.shape[0]) == train)
     g.ndata["val_mask"]   = torch.tensor(np.ones(A.shape[0]) == val)
     g.ndata["test_mask"]  = torch.tensor(np.ones(A.shape[0]) == test)
@@ -156,7 +141,8 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
     g = dgl.graph([])
-    mode = "glove"
+    global emb_name
+    mode = emb_name
     for prot in graphs.keys():
         A, labels = graphs[prot]
         feats = embeddings[prot]
@@ -205,7 +191,6 @@ def make_folder(folder):
     else:
         os.makedirs(folder)
 
-
 import torch
 
 #my_graph = create_dgl_graph(A, feats, labels, 1, 0, 0)
@@ -220,6 +205,22 @@ val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
 test_embs_pth = os.path.join("../ML_data", "test_data", "graph")
 cv_supplements_pth = os.path.join("../ML_data", "cv_supplements")
 if create:
+    TRAIN_EMBS = {}
+    VAL_EMBS = {}
+    TEST_EMBS = {}
+    for file in os.listdir(train_embs):
+        TRAIN_EMBS[file[:-2]] = pickle.load(open(os.path.join(train_embs, file), "rb"))
+
+    print(f"Training embeddings loaded : {len(TRAIN_EMBS)} items")
+    for file in os.listdir(val_embs):
+        VAL_EMBS[file[:-2]] = pickle.load(open(os.path.join(val_embs, file), "rb"))
+
+    print(f"Validation embeddings loaded : {len(VAL_EMBS)} items")
+
+    for file in os.listdir(test_embs):
+        TEST_EMBS[file[:-2]] = pickle.load(open(os.path.join(test_embs, file), "rb"))
+
+    print(f"Testing embeddings loaded : {len(TEST_EMBS)} items")
     # Train
     onehot = False
     print("Creating training set...")
@@ -234,13 +235,13 @@ if create:
     g_test = create_dgl_data(TEST_GRAPHS, TEST_EMBS, train=0, val=0, test=1, onehot=onehot)
     pickle.dump(g_test, open(os.path.join(test_embs_pth), "wb"))
 
-    pickle.dump([graph_lengths, graph_number, test_graph_feats], open(os.path.join(cv_supplements_pth), "wb"))
+    pickle.dump([graph_lengths, graph_number, test_graph_feats, val_graph_number, train_graph_number], open(os.path.join(cv_supplements_pth), "wb"))
 else:
     g_train = pickle.load(open(train_embs_pth, "rb"))
     g_val = pickle.load(open(val_embs_pth, "rb"))
     g_test = pickle.load(open(test_embs_pth, "rb"))
     cv_s = pickle.load(open(cv_supplements_pth, "rb"))
-    graph_lengths, graph_number, test_graph_feats = cv_s[0], cv_s[1], cv_s[2]
+    graph_lengths, graph_number, test_graph_feats, val_graph_number, train_graph_number = cv_s[0], cv_s[1], cv_s[2], cv_s[3], cv_s[4]
 
 
 g = dgl.batch([g_train, g_val, g_test])
@@ -353,27 +354,14 @@ cv_val_losses=[[0],[0],[0],[0],[0]]
 cv_total_mcc_val = []
 
 def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_folds = 5):
-    global cv_train_losses
-    global cv_total_mcc_val
-    global cv_val_losses
-    global cv
-    global graph_number
+    global emb_name
+    print(emb_name)
     global graph_lengths
-    global train_graph_feats
-    global val_graph_feats
-    global test_graph_feats
     name_position_dict = {}
     folds = []
-    print("own counter training   : " + str(train_graph_feats))
-    print("own counter validating : " + str(val_graph_feats))
-    print("own counter testing    : " + str(test_graph_feats))
-    print("dgl training on nodes  : " + str((g.ndata["train_mask"] == 1).sum()))
-    print("dgl validating on nodes: " + str((g.ndata["val_mask"] == 1).sum()))
-    print("dgl testing on nodes   : " + str((g.ndata["test_mask"] == 1).sum()))
     fold_size = (train_graph_number+val_graph_number) / cv_folds
     counter = 0
 
-    starting_index = -5
     lastend = 0
     testset=False
     for i in np.arange(cv_folds+1):
@@ -418,14 +406,15 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
 
     optimizer = torch.optim.Adam(model.parameters(), lr)
     # Get graph features, labels and masks
-    features = g.ndata['feat']
-    labels = g.ndata['label']
+    features = g.ndata['feat'].float()
+    labels = g.ndata['label'].float()
     train_mask = g.ndata['train_mask']
     val_mask = g.ndata['val_mask']
     test_mask = g.ndata['test_mask']
 
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=10, min_delta=0.0001, path="..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "val_split" + str(val_split)) +".pt")
+    path_model = "..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "val_split" + str(val_split)) +emb_name+".pt"
+    early_stopping = EarlyStopping(patience=10, min_delta=0.0001, path=path_model)
 
     # Set sample importance weights
     weights = []
@@ -439,7 +428,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
     df_feat = pd.DataFrame(features.numpy())
     val_mask_df = pd.DataFrame(val_mask)
     train_mask_df = pd.DataFrame(train_mask)
-    usable = df_feat[512] == 1
+    usable = df_feat[df_feat.shape[1]-1] == 1
     labels_df = labels_df[usable]
     train_mask_df = train_mask_df[usable]
     val_mask_df = val_mask_df[usable]
@@ -481,8 +470,12 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
         early_stopping(1-val_mcc, model)
         # early_stopping(loss, model)
 
-
+        if early_stopping.best_loss == 1:
+            early_stopping.counter = 0
         if e % 5 == 0 or early_stopping.early_stop:
+            if early_stopping.early_stop:
+                print((1 - early_stopping.best_loss))
+                print(path_model)
             # removing the impossible aa from the prediction
 #            met_pred, met_labels, met_train_mask, met_val_mask, usable = slim_for_metrics(features, pred, labels, train_mask, val_mask)
             # Evaluation metric # deppendict = {0: [0, 3, '2osu', 0], 1: [3, 6, '4ec9', 1], 2: [6, 9, '5uiq', 1], 3: [9, 12, '5o2c', 1], 4: [12, 15, '6fqm', 1]}
@@ -563,13 +556,15 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
 
 import GNN_architect
 
-def training_cv(val_split):
+def training_cv(val_split,hyperparameter):
     global layers
     dgl.seed(1)
     # Train the model
-    layers = [g.ndata['feat'].shape[1],512,256,128,64,32]#,hyperparameter]#,16]#,32,16,32,16,32,16,8] # , 64] # yannick
-    #[layers.append(lay) for lay in hyperparameter]
-    kernel_size = [2,1,1,1,1,1]
+    #layers = [g.ndata['feat'].shape[1],512,256,128,64,32]#,hyperparameter]#,16]#,32,16,32,16,32,16,8] # , 64] # yannick
+    layers = [g.ndata['feat'].shape[1]]
+    [layers.append(lay) for lay in hyperparameter]
+    #kernel_size = [2,1,1,1,1,1]
+    kernel_size = [1 for i in layers]
     print("Split used for validation: " + str(val_split))
     print("model : ", kernel_size)
     model = GNN_architect.GCN(layers, kernel_size)
@@ -579,16 +574,17 @@ def training_cv(val_split):
     return val_mcc
 
 
-def start_comparison():
+def start_comparison(hyperparam):
     cv_val_results = []
     val_splits=[0,1,2,3,4]
     for i in val_splits:
-        for seed in [1,2,3,4,5]:
+        for seed in [1,2]:
             dgl.seed(seed)
-            cv_val_results.append(training_cv(i))
+            cv_val_results.append(training_cv(i,hyperparam))
     return cv_val_results
 
-#layer_sizes = [[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
+layer_sizes = [[16,8,8,8],[16,8,8],[16,8],[8]]
+#layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32],[512,256,128,64,32],[256,128,64,32],[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
 #layer_sizes = [[64,64,32,32],[32,32,16,16],[16,16,8,8]]
 #layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]
 #layer_sizes = [[256,128,64,32],[512,32]]
@@ -598,10 +594,10 @@ def start_comparison():
 kernel_sizes = [[2,1,1,1,1,1],[2,2,1,1,1,1],[3,2,1,1,1,1]]
 hyperparameter_dict = {}
 
-hyperparameter_dict[0] = start_comparison()
-print(hyperparameter_dict)
+#hyperparameter_dict[0] = start_comparison()
+#print(hyperparameter_dict)
 
-for idx, comparable in enumerate(kernel_sizes):
+for idx, comparable in enumerate(layer_sizes):
     hyperparameter_dict[idx] = start_comparison(comparable)
 
 print(hyperparameter_dict)

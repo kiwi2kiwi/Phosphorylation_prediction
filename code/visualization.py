@@ -27,7 +27,7 @@ AC_letters=list(STANDARD_AMINO_ACIDS.values())
 
 
 np.random.RandomState(1)
-emb_name = "glove"
+emb_name = "bert"
 emb_folder = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
 
 sample_n = len(os.listdir(emb_folder))
@@ -56,7 +56,7 @@ def combine_training_embeddings():
         label_list = pd.Series(0, to_append.index)
         true_labels = index_dict[file[:-2]][0]
         label_list.loc[true_labels] = 1
-        to_append[512] = label_list
+        to_append[1024] = label_list
         possible_list = pd.Series(0, to_append.index)
         possible_labels = index_dict[file[:-2]][1]
         temp = possible_labels
@@ -64,7 +64,7 @@ def combine_training_embeddings():
             if i>to_append.index[-1]:
                 possible_labels.remove(i)
         possible_list.loc[possible_labels] = 1
-        to_append[513] = possible_list
+        to_append[1025] = possible_list
 
         STW_labels = []
         for i in res_dict[file[:-2]]:
@@ -73,11 +73,11 @@ def combine_training_embeddings():
             else:
                 STW_labels.append(3)
         STW_list = pd.Series(STW_labels, to_append.index)
-        to_append[514] = STW_list
+        to_append[1026] = STW_list
 
-        if to_append[(to_append[512] == 1) & (to_append[512] == 0)].shape[0] > 0:
+        if to_append[(to_append[1024] == 1) & (to_append[1024] == 0)].shape[0] > 0:
             print("stop")
-        to_append = to_append[to_append[513] == 1]
+        to_append = to_append[to_append[1025] == 1]
         to_append = to_append.reset_index(drop=True)
         print(counter)
         training_embs = training_embs.append(to_append)
@@ -90,9 +90,9 @@ def combine_training_embeddings():
 training_embs = combine_training_embeddings()
 training_embs = pickle.load(open(os.path.join("../ML_data", "visualization", "tsne_embs.txt"), "rb"))
 
-false_labels = training_embs.loc[training_embs[512] == 0]
+false_labels = training_embs.loc[training_embs[1024] == 0]
 false_labels = false_labels.reset_index(drop=True)
-true_labels = training_embs.loc[training_embs[512] == 1]
+true_labels = training_embs.loc[training_embs[1024] == 1]
 true_labels = true_labels.reset_index(drop=True)
 false_labels = false_labels.sample(frac=(true_labels.shape[0]/false_labels.shape[0])*10)
 sample_n = true_labels.shape[0]
@@ -121,11 +121,11 @@ colors = ["r","b"]
 #zettel = np.concatenate((np.full((sample_n),"linker"),np.full((sample_n),"domain")))
 colors = np.concatenate((np.full((sample_n),"r"),np.full((sample_n),"b")))
 Y = Y.reset_index(drop=True)
-S = Y[Y[514]==0]
+S = Y[Y[1026]==0]
 Sm = m[S.index]
-W = Y[Y[514]==1]
+W = Y[Y[1026]==1]
 Wm = m[W.index]
-T = Y[Y[514]==2]
+T = Y[Y[1026]==2]
 Tm = m[T.index]
 colors_S = np.full((S.index.shape[0]), "g")
 colors_W = np.full((W.index.shape[0]), "b")

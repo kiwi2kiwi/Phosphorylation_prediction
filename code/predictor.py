@@ -21,7 +21,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # supplements from previous script
-emb_name = "glove"
+emb_name = "bert"
 
 
 # Load the graphs
@@ -185,7 +185,7 @@ import GNN_architect
 
 dgl.seed(1)
 # model,8,4.pt
-model_name = "model,512,256,128,64,32val_split0.pt"
+model_name = "model,16,8,8,8val_split0glove.pt"#"model,2048,1024,512,256,128,64,32val_split0.pt"#"model,512,256,128,64,32val_split0.pt"
 #model_name = "model,8val_split0.pt"
 modelpath = WD / "ML_data" / "ML_models_saves" / model_name
 model = pickle.load(open(modelpath,"rb"))
