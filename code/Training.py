@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore")
 # supplements from previous script
 #train_graphs = os.path.join("../ML_data", "train_data", "graphs")
 #val_graphs = os.path.join("../ML_data", "val_data", "graphs")
-emb_name = "bert"
+emb_name = "glove"
 #train_embs = os.path.join("../ML_data", "train_data", "embeddings", emb_name)
 #val_embs = os.path.join("../ML_data", "val_data", "embeddings", emb_name)
 
@@ -63,31 +63,10 @@ print(f"Testing graphs loaded : {len(TEST_GRAPHS)} items")
 #     TRAIN_GRAPHS={**TRAIN_GRAPHS,**VAL_GRAPHS}
 
 
-# "In[26]:"
-
-
-for graph in TRAIN_GRAPHS.values():
-    A, labels = graph
-    break
-
-# "In[29]:"
-
-
-labels.shape
-
-# "In[34]:"
-
-
 # Load the embeddings
 
 import pickle
 
-
-
-# if cv:
-#     TRAIN_EMBS={**TRAIN_EMBS,**VAL_EMBS}
-
-# "In[35]:"
 import tensorflow as tf
 total_feats = 0
 graph_number = 0
@@ -198,7 +177,7 @@ import torch
 
 # "In[245]:"
 
-create = True
+create = False
 
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
@@ -412,8 +391,9 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
     val_mask = g.ndata['val_mask']
     test_mask = g.ndata['test_mask']
 
+    global seed_dgl
     # initialize the early_stopping object
-    path_model = "..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "val_split" + str(val_split)) +emb_name+".pt"
+    path_model = "..\\ML_data\\ML_models_saves\\model," + str(",".join([str(i) for i in layers[1:]]) + "ranseed_" + str(seed_dgl) + "val_split" + str(val_split)) +emb_name+".pt"
     early_stopping = EarlyStopping(patience=10, min_delta=0.0001, path=path_model)
 
     # Set sample importance weights
@@ -429,6 +409,9 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
     val_mask_df = pd.DataFrame(val_mask)
     train_mask_df = pd.DataFrame(train_mask)
     usable = df_feat[df_feat.shape[1]-1] == 1
+    # usable_train_mask = usable[pd.Series(train_mask.detach().numpy())]
+    # usable_val_mask = usable[pd.Series(val_mask.detach().numpy())]
+    # usable_test_mask = usable[pd.Series(test_mask.detach().numpy())]
     labels_df = labels_df[usable]
     train_mask_df = train_mask_df[usable]
     val_mask_df = val_mask_df[usable]
@@ -448,14 +431,14 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
         weight = (torch.Tensor([0, n2, n1]))
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
         model.eval()
-        val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
-        if cv:
-            cv_train_losses[val_split].append(loss)
-            cv_val_losses[val_split].append(val_loss)
-
-        else:
-            train_losses.append(loss)
-            test_losses.append(val_loss)
+        # val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
+        # if cv:
+        #     cv_train_losses[val_split].append(loss)
+        #     cv_val_losses[val_split].append(val_loss)
+        #
+        # else:
+        #     train_losses.append(loss)
+        #     test_losses.append(val_loss)
 
         model.train()
         # Backward
@@ -463,6 +446,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
         loss.backward()
         optimizer.step()
 
+        # pred_val = (pred[val_mask])[usable_val_mask]
         pred_df = pd.DataFrame(pred)
         pred_df = pred_df[usable]
         pred_np = pred_df.to_numpy()
@@ -558,7 +542,7 @@ import GNN_architect
 
 def training_cv(val_split,hyperparameter):
     global layers
-    dgl.seed(1)
+    # dgl.seed(1)
     # Train the model
     #layers = [g.ndata['feat'].shape[1],512,256,128,64,32]#,hyperparameter]#,16]#,32,16,32,16,32,16,8] # , 64] # yannick
     layers = [g.ndata['feat'].shape[1]]
@@ -566,24 +550,26 @@ def training_cv(val_split,hyperparameter):
     #kernel_size = [2,1,1,1,1,1]
     kernel_size = [1 for i in layers]
     print("Split used for validation: " + str(val_split))
-    print("model : ", kernel_size)
+    print("model : ", layers)
     model = GNN_architect.GCN(layers, kernel_size)
     #pred, true = \
     val_mcc = train(g, model, n_epochs=1000, metric_name="mcc", plot = False, val_split=val_split)
     del model
     return val_mcc
 
-
+global seed_dgl
 def start_comparison(hyperparam):
     cv_val_results = []
     val_splits=[0,1,2,3,4]
     for i in val_splits:
         for seed in [1,2]:
+            global seed_dgl
+            seed_dgl = seed
             dgl.seed(seed)
             cv_val_results.append(training_cv(i,hyperparam))
     return cv_val_results
 
-layer_sizes = [[16,8,8,8],[16,8,8],[16,8],[8]]
+layer_sizes = [[1024,512],[1024],[2048]]
 #layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32],[512,256,128,64,32],[256,128,64,32],[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
 #layer_sizes = [[64,64,32,32],[32,32,16,16],[16,16,8,8]]
 #layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]

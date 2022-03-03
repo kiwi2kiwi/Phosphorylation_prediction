@@ -143,7 +143,7 @@ def predictor(g, model):
     features = g.ndata['feat']
 
     df_feat = pd.DataFrame(features.numpy())
-    usable = df_feat[512] == 1
+    usable = df_feat[df_feat.shape[1]-1] == 1
     # Forward
     model.eval()
     logits = model(g, features)
