@@ -42,9 +42,9 @@ TRAIN_GRAPHS = {}
 VAL_GRAPHS = {}
 TEST_GRAPHS = {}
 WD = Path(__file__).resolve().parents[1]
-train_graphs = WD / "ML_data" / "train_data" / "graphs"
-val_graphs = WD / "ML_data" / "val_data" / "graphs"
-test_graphs = WD / "ML_data" / "test_data" / "graphs"
+train_graphs = WD / "ML_data" / "train_data" / "graphs" / "contact"
+val_graphs = WD / "ML_data" / "val_data" / "graphs" / "contact"
+test_graphs = WD / "ML_data" / "test_data" / "graphs" / "contact"
 
 train_embs = WD / "ML_data" / "train_data" / "embeddings" / emb_name
 val_embs = WD / "ML_data" / "val_data" / "embeddings" / emb_name
@@ -92,30 +92,30 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
         graph_number += 1
         global total_feats
         total_feats += labels.shape[0]
-    if train == 1:
-        global train_graph_number
-        global train_graph_feats
-        #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
-        # global graph_lengths
-        # graph_lengths[train_graph_number] = A.shape[0]
-        train_graph_number += 1
-        train_graph_feats += labels.shape[0]
-    if val == 1:
-        global val_graph_number
-        global val_graph_feats
-        #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
-        # global graph_lengths
-        # graph_lengths[train_graph_number] = A.shape[0]
-        val_graph_number += 1
-        val_graph_feats += labels.shape[0]
-    if test == 1:
-        global test_graph_number
-        global test_graph_feats
-        #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
-        # global graph_lengths
-        # graph_lengths[train_graph_number] = A.shape[0]
-        test_graph_number += 1
-        test_graph_feats += labels.shape[0]
+    # if train == 1:
+    #     global train_graph_number
+    #     global train_graph_feats
+    #     #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
+    #     # global graph_lengths
+    #     # graph_lengths[train_graph_number] = A.shape[0]
+    #     train_graph_number += 1
+    #     train_graph_feats += labels.shape[0]
+    # if val == 1:
+    #     global val_graph_number
+    #     global val_graph_feats
+    #     #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
+    #     # global graph_lengths
+    #     # graph_lengths[train_graph_number] = A.shape[0]
+    #     val_graph_number += 1
+    #     val_graph_feats += labels.shape[0]
+    # if test == 1:
+    #     global test_graph_number
+    #     global test_graph_feats
+    #     #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
+    #     # global graph_lengths
+    #     # graph_lengths[train_graph_number] = A.shape[0]
+    #     test_graph_number += 1
+    #     test_graph_feats += labels.shape[0]
     return g
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
@@ -177,7 +177,7 @@ import torch
 
 # "In[245]:"
 
-create = False
+create = True
 
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
@@ -431,14 +431,15 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
         weight = (torch.Tensor([0, n2, n1]))
         loss = nn.CrossEntropyLoss(weight)(logits[train_mask].float(), labels[train_mask].reshape(-1, ).long())
         model.eval()
-        # val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
-        # if cv:
-        #     cv_train_losses[val_split].append(loss)
-        #     cv_val_losses[val_split].append(val_loss)
-        #
-        # else:
-        #     train_losses.append(loss)
-        #     test_losses.append(val_loss)
+        if plot:
+            val_loss = nn.CrossEntropyLoss(weight)(logits[val_mask].float(), labels[val_mask].reshape(-1, ).long())
+            if cv:
+                cv_train_losses[val_split].append(loss)
+                cv_val_losses[val_split].append(val_loss)
+
+            else:
+                train_losses.append(loss)
+                test_losses.append(val_loss)
 
         model.train()
         # Backward

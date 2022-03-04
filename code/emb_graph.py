@@ -122,7 +122,8 @@ def are_connected(A, residues, th):
                     if abs(atm1[2] - atm2[2]) <= th:
                         distance = np.linalg.norm(atm1 - atm2)
                         if distance < th:
-                            A[i_num, j_num] = 1
+                            # A[i_num, j_num] = 1 # use this for a contact map
+                            A[i_num, j_num] = 10 - distance # use this for a distance map. Closer atoms get higher score
     return A
     # Check all atoms in the first residue and get their coordinates
     # for atom1 in res1.get_unpacked_list():
@@ -188,7 +189,7 @@ def get_graph(data_folder, file):
     # Adjacency matrix at the residue level
     n_res = len(residues)
     A = np.zeros((n_res, n_res))
-    A = are_connected(A, residues, th=6)  # Threshold = 6 Angstroms
+    A = are_connected(A, residues, th=10)  # Threshold = 6 Angstroms
     labels = np.zeros((n_res,1))
 
     for idx, residue_structured in enumerate(residues):
@@ -204,10 +205,10 @@ def get_graph(data_folder, file):
     return scipy.sparse.csr_matrix(A), labels
 
 
-
-import h5py
+# use external embeddings
+# they have to be in the format of a dictionary with key = protein id and value = matrix embedding length x sequence length
 embedding_dictionary = {}
-embedding_source = "internal"
+embedding_source = "external"
 if embedding_source == "external":
     data = np.load(WD / "ML_data" / "external_embeddigs" / "phospho_bert_emb.npy", allow_pickle=True)
     for i in data:
@@ -239,7 +240,6 @@ def get_embeddings(data_folder, file, emb_name):
     if embedding_source == "external":
         global embedding_dictionary
         embedding = embedding_dictionary[file[:-4]]
-        # TODO open external h5py file and
     else:
         embedding = EMBEDDERS[emb_name].embed(sequence)
     embedding = pd.DataFrame(embedding)
@@ -469,16 +469,15 @@ cv_seq = os.path.join("D:/data", dataset, "cv_data", "sequences")
 # ### Graphs
 
 # "In[21]:"
-train_graphs = os.path.join("../ML_data", "train_data", "graphs")
-val_graphs = os.path.join("../ML_data", "val_data", "graphs")
-test_graphs = os.path.join("../ML_data", "test_data", "graphs")
-cv_graphs = os.path.join("../ML_data", "cv_data", "graphs")
-# "In[330]:"
+train_graphs = os.path.join("../ML_data", "train_data", "graphs", "distance")
+val_graphs = os.path.join("../ML_data", "val_data", "graphs", "distance")
+test_graphs = os.path.join("../ML_data", "test_data", "graphs", "distance")
+#cv_graphs = os.path.join("../ML_data", "cv_data", "graphs", "distance")
 # "In[336]:"
 print(f"Training graphs : {n_train} elements")
 print(f"Validation graphs : {n_val} elements")
 print(f"Testing graphs : {n_test} elements")
-print(f"CV graphs : {(n_train+n_val)} elements")
+#print(f"CV graphs : {(n_train+n_val)} elements")
 
 training_set_intervall_size = 20
 
@@ -505,14 +504,14 @@ def generate_graphs():
     make_folder(train_graphs)
     make_folder(val_graphs)
     make_folder(test_graphs)
-    make_folder(cv_graphs)
+    # make_folder(cv_graphs)
     # "In[339]:"
     batch_number = 0
     while pdb_files > (batch_number * training_set_intervall_size):
         graph_generation(batch_number, trainset, "Training", train_graphs)
         graph_generation(batch_number, valset, "Validation", val_graphs)
         graph_generation(batch_number, testset, "Testing", test_graphs)
-        graph_generation(batch_number, testset, "CV", cv_graphs)
+        # graph_generation(batch_number, testset, "CV", cv_graphs)
 
         batch_number += 1
 
