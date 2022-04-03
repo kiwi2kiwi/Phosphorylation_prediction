@@ -170,14 +170,19 @@ def get_graph(data_folder, file):
     return scipy.sparse.csr_matrix(A), labels
 
 
-
+from pathlib import Path
+WD = Path(__file__).resolve().parents[1]
 import h5py
 embedding_dictionary = {}
+embedding_source = "external"
 embedding_source = "internal"
-if embedding_source == "external":
-    print("missing external")
 
-    # TODO open external h5py file and put residues in dictionary
+# TODO TUTORIAL HERE
+# create a file that looks like the bert embedder output. This can be used as custom embeddings
+if embedding_source == "external":
+    data = np.load(WD / "ML_data" / "external_embeddigs" / "phospho_bert_emb.npy", allow_pickle=True)
+    for i in data:
+        embedding_dictionary[i[0]] = i[1]
 
 def get_embeddings(data_folder, file, emb_name):
     prot_file = os.path.join(data_folder, file)
@@ -200,7 +205,6 @@ def get_embeddings(data_folder, file, emb_name):
     if embedding_source == "external":
         global embedding_dictionary
         embedding = embedding_dictionary[file[:-4]]
-        # TODO open external h5py file and
     else:
         embedding = EMBEDDERS[emb_name].embed(sequence)
     embedding = pd.DataFrame(embedding)

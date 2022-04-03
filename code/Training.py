@@ -42,9 +42,9 @@ TRAIN_GRAPHS = {}
 VAL_GRAPHS = {}
 TEST_GRAPHS = {}
 WD = Path(__file__).resolve().parents[1]
-train_graphs = WD / "ML_data" / "train_data" / "graphs" / "contact"
-val_graphs = WD / "ML_data" / "val_data" / "graphs" / "contact"
-test_graphs = WD / "ML_data" / "test_data" / "graphs" / "contact"
+train_graphs = WD / "ML_data" / "train_data" / "graphs" / "contact" / "6" # "contact"
+val_graphs = WD / "ML_data" / "val_data" / "graphs" / "contact" / "6" # "contact"
+test_graphs = WD / "ML_data" / "test_data" / "graphs" / "contact" / "6" # "contact"
 
 train_embs = WD / "ML_data" / "train_data" / "embeddings" / emb_name
 val_embs = WD / "ML_data" / "val_data" / "embeddings" / emb_name
@@ -92,30 +92,30 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
         graph_number += 1
         global total_feats
         total_feats += labels.shape[0]
-    # if train == 1:
-    #     global train_graph_number
+    if train == 1:
+        global train_graph_number
     #     global train_graph_feats
     #     #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
     #     # global graph_lengths
     #     # graph_lengths[train_graph_number] = A.shape[0]
-    #     train_graph_number += 1
+        train_graph_number += 1
     #     train_graph_feats += labels.shape[0]
-    # if val == 1:
-    #     global val_graph_number
+    if val == 1:
+        global val_graph_number
     #     global val_graph_feats
     #     #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
     #     # global graph_lengths
     #     # graph_lengths[train_graph_number] = A.shape[0]
-    #     val_graph_number += 1
+        val_graph_number += 1
     #     val_graph_feats += labels.shape[0]
-    # if test == 1:
+    if test == 1:
     #     global test_graph_number
-    #     global test_graph_feats
+        global test_graph_feats
     #     #g.ndata["graph_number"] = torch.full((labels.shape[0],1), graph_number)
     #     # global graph_lengths
     #     # graph_lengths[train_graph_number] = A.shape[0]
     #     test_graph_number += 1
-    #     test_graph_feats += labels.shape[0]
+        test_graph_feats += labels.shape[0]
     return g
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
@@ -342,13 +342,15 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
     counter = 0
 
     lastend = 0
-    testset=False
+    testset = False
     for i in np.arange(cv_folds+1):
         start = round(i * fold_size)
         end = round((i+1) * fold_size)
         if i == cv_folds:
             testset = True
             end = graph_lengths.__len__()
+        else:
+            testset = False
         set_length = 0
         for prot in np.arange(start, end):
             if not testset:
@@ -468,7 +470,7 @@ def train(g, model, n_epochs, metric_name, lr=1e-3, plot=False, val_split=4, cv_
             train_metric_list = []
             val_metric_list = []
             train_mcc, val_mcc = get_metric(pred_np, labels_np, train_mask_np, val_mask_np, metric_name)
-            print("whole set mcc train, val: " + str(train_mcc) + str(val_mcc))
+            print("whole set mcc train, val: " + str(train_mcc) + " " + str(val_mcc))
             per_protein_metric = False
             if per_protein_metric:
                 for key in name_position_dict.keys():
@@ -570,7 +572,7 @@ def start_comparison(hyperparam):
             cv_val_results.append(training_cv(i,hyperparam))
     return cv_val_results
 
-layer_sizes = [[1024,512],[1024],[2048]]
+#layer_sizes = [[8,8,8,8,8],[16,8,8,8,8]]
 #layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32],[512,256,128,64,32],[256,128,64,32],[128,64,32],[64,32,16],[32,16,8],[16,8],[8]]
 #layer_sizes = [[64,64,32,32],[32,32,16,16],[16,16,8,8]]
 #layer_sizes = [[64,16,32,16,32,8],[16,8,16,8,16,8]]
@@ -578,6 +580,7 @@ layer_sizes = [[1024,512],[1024],[2048]]
 #layer_sizes = [[512,256,128,64,32],[512]]
 #layer_sizes = [[512,256,128,64,32],[512]]
 #layer_sizes = [[2048,1024,512,256,128,64,32],[1024,512,256,128,64,32]]
+layer_sizes=[[1024],[32]]
 kernel_sizes = [[2,1,1,1,1,1],[2,2,1,1,1,1],[3,2,1,1,1,1]]
 hyperparameter_dict = {}
 

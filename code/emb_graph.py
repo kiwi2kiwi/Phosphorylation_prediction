@@ -123,7 +123,7 @@ def are_connected(A, residues, th):
                         distance = np.linalg.norm(atm1 - atm2)
                         if distance < th:
                             # A[i_num, j_num] = 1 # use this for a contact map
-                            A[i_num, j_num] = 10 - distance # use this for a distance map. Closer atoms get higher score
+                            A[i_num, j_num] = th - distance # use this for a distance map. Closer atoms get higher score
     return A
     # Check all atoms in the first residue and get their coordinates
     # for atom1 in res1.get_unpacked_list():
@@ -175,6 +175,7 @@ def embedding_twister(sequence, emb_name):
     embedding = emb1
     return embedding
 
+threshold = 6
 
 def get_graph(data_folder, file):
     global true_labels
@@ -189,7 +190,8 @@ def get_graph(data_folder, file):
     # Adjacency matrix at the residue level
     n_res = len(residues)
     A = np.zeros((n_res, n_res))
-    A = are_connected(A, residues, th=10)  # Threshold = 6 Angstroms
+    global threshold
+    A = are_connected(A, residues, th=6)  # Threshold = 6 Angstroms
     labels = np.zeros((n_res,1))
 
     for idx, residue_structured in enumerate(residues):
@@ -209,6 +211,10 @@ def get_graph(data_folder, file):
 # they have to be in the format of a dictionary with key = protein id and value = matrix embedding length x sequence length
 embedding_dictionary = {}
 embedding_source = "external"
+embedding_source = "internal"
+
+# TODO TUTORIAL HERE
+# create a file that looks like the bert embedder output. This can be used as custom embeddings
 if embedding_source == "external":
     data = np.load(WD / "ML_data" / "external_embeddigs" / "phospho_bert_emb.npy", allow_pickle=True)
     for i in data:
@@ -469,9 +475,9 @@ cv_seq = os.path.join("D:/data", dataset, "cv_data", "sequences")
 # ### Graphs
 
 # "In[21]:"
-train_graphs = os.path.join("../ML_data", "train_data", "graphs", "distance")
-val_graphs = os.path.join("../ML_data", "val_data", "graphs", "distance")
-test_graphs = os.path.join("../ML_data", "test_data", "graphs", "distance")
+train_graphs = os.path.join("../ML_data", "train_data", "graphs", "distance", str(threshold))
+val_graphs = os.path.join("../ML_data", "val_data", "graphs", "distance", str(threshold))
+test_graphs = os.path.join("../ML_data", "test_data", "graphs", "distance", str(threshold))
 #cv_graphs = os.path.join("../ML_data", "cv_data", "graphs", "distance")
 # "In[336]:"
 print(f"Training graphs : {n_train} elements")
@@ -516,7 +522,6 @@ def generate_graphs():
         batch_number += 1
 
 
-# generate_graphs()
 
 # ### Embeddings
 
@@ -568,7 +573,11 @@ def create_embeddings():
         # embedding_generation(batch_number, cvset, "CV", test_embs)
         batch_number += 1
 
-create_embeddings()
+
+generate_graphs()
+print("generated graphs")
+#create_embeddings()
+#print("generated embeddings")
 
 print("end")
 # "In[22]:"

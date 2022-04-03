@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
+
+# this file is for predicting new pdb files right after emb_graph_new_pdb.py
+
 import os
 import time
 import numpy as np
 import pandas as pd
 
-from Bio.PDB import *
+#from Bio.PDB import *
 # import spektral
 import dgl
 import dgl.nn
@@ -21,7 +24,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # supplements from previous script
-emb_name = "bert"
+emb_name = "glove"
 
 
 # Load the graphs
@@ -58,12 +61,12 @@ def create_dgl_graph(A, feats, labels, train, val, test, prot):
     g = dgl.from_scipy(A)
     feats = feats.reset_index(drop=True)
     g.ndata["feat"] = torch.tensor(feats[feats.columns].values).long()
-    g.ndata["feat2"] = torch.tensor(feats[feats.columns].values)
+#    g.ndata["feat2"] = torch.tensor(feats[feats.columns].values)
     return g
 
 def create_dgl_data(graphs, embeddings, train, val, test, onehot, mode="sum"):
     g = dgl.graph([])
-    mode = "glove"
+    #mode = "glove"
     for prot in graphs.keys():
         A, labels = graphs[prot]
         feats = embeddings[prot]
@@ -102,11 +105,11 @@ import torch
 # "In[245]:"
 
 create = True
+embeddings = "glove"
 
-prediction_embs_pth = os.path.join("../ML_data", "prediction", "graph")
 onehot = False
 print("Creating training set...")
-g = create_dgl_data(PREDICTION_GRAPHS, PREDICTION_EMBS, train=1, val=0, test=0, onehot=onehot)
+g = create_dgl_data(PREDICTION_GRAPHS, PREDICTION_EMBS, train=0, val=0, test=1, onehot=onehot, mode=embeddings)
 
 
 
@@ -168,14 +171,22 @@ def predictor(g, model):
     to_select_negative = ava[(pred[result_possibles] == 1)].detach().numpy()
     indices_sel = "[" + ",".join(map(str, map(int, to_select))) + "]"
     indices_sel_negative = "[" + ",".join(map(str, map(int, to_select_negative))) + "]"
+    print("load protein with name: " + name)
     print("the red residues are predicted to be phosphorylated, and the blue ones are unphosphorylated THR, TYR, SER")
     print("load the protein and paste this into the pymol console to see the predicted residues")
     print("show surface")
-    print("color green")#, 7tvs")
-    print("select resi "+indices_sel)
+    # print("show cartoon")
+    print("remove solvent")
+    print("color white")
+    print("select resi " + indices_tp)
+    print("color green, sele")
+    print("select resi " + indices_tn)
     print("color red, sele")
-    print("select resi "+indices_sel_negative)
-    print("color blue, sele")
+    print("select resi " + indices_fp)
+    print("color cyan, sele")
+    print("select resi " + indices_fn)
+    print("color purple, sele")
+    print("select resi")
     print(pred)
 
 
@@ -185,22 +196,23 @@ import GNN_architect
 
 dgl.seed(1)
 # model,8,4.pt
-model_name = "model,16,8,8,8val_split0glove.pt"#"model,2048,1024,512,256,128,64,32val_split0.pt"#"model,512,256,128,64,32val_split0.pt"
+model_name = "model,16ranseed_1val_split1glove.pt"
+model_name = "model,1024ranseed_2val_split1glove.pt"
 #model_name = "model,8val_split0.pt"
 modelpath = WD / "ML_data" / "ML_models_saves" / model_name
 model = pickle.load(open(modelpath,"rb"))
 #GNN_architect.GCN(layers, kernel_size)
 predictor(g, model)
 
-
-import cProfile
-cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.dat")
-import pstats
-from pstats import SortKey
-with open("output_time.txt", "w")as f:
-    p = pstats.Stats("output.dat", stream=f)
-    p.sort_stats("time").print_stats()
-with open("output_calls.txt", "w") as f:
-    p = pstats.Stats("output.dat", stream=f)
-    p.sort_stats("calls").print_stats()
-
+#
+# import cProfile
+# cProfile.run("pred, true = train(g, model, n_epochs=500, metric_name='mcc')", "output.dat")
+# import pstats
+# from pstats import SortKey
+# with open("output_time.txt", "w")as f:
+#     p = pstats.Stats("output.dat", stream=f)
+#     p.sort_stats("time").print_stats()
+# with open("output_calls.txt", "w") as f:
+#     p = pstats.Stats("output.dat", stream=f)
+#     p.sort_stats("calls").print_stats()
+#

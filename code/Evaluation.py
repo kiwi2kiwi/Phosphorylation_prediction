@@ -24,19 +24,19 @@ warnings.filterwarnings("ignore")
 train_embs_pth = os.path.join("../ML_data", "train_data", "graph")
 val_embs_pth = os.path.join("../ML_data", "val_data", "graph")
 test_embs_pth = os.path.join("../ML_data", "test_data", "graph")
-cv_supplements_pth = os.path.join("../ML_data", "cv_supplements")
+#cv_supplements_pth = os.path.join("../ML_data", "cv_supplements")
 name_dict = os.path.join("../ML_data", "name_dict")
 g_train = pickle.load(open(train_embs_pth, "rb"))
 g_val = pickle.load(open(val_embs_pth, "rb"))
 g_test = pickle.load(open(test_embs_pth, "rb"))
-cv_s = pickle.load(open(cv_supplements_pth, "rb"))
+#cv_s = pickle.load(open(cv_supplements_pth, "rb"))
 name_position_dict = pickle.load(open(os.path.join(name_dict), "rb"))
 
 
 g = dgl.batch([g_train, g_val, g_test])
 del g_train
 del g_val
-del g_test
+g_test
 
 
 from sklearn.metrics import recall_score, accuracy_score, precision_score, f1_score, confusion_matrix
@@ -189,21 +189,25 @@ import matplotlib.pyplot as plt
 
 dgl.seed(1)
 #"model,16,8,8,8val_split0bert.pt"
-model_name = "model,512val_split0bert.pt"
+#model_name = "model,16ranseed_1val_split1bert.pt" # best performing network
+#model,16,8,8,8,8ranseed_2val_split1bert.pt # best empty features baseline
+model_name = "model,16ranseed_1val_split1bert.pt"
+"model,512val_split0bert.pt"
 modelpath = WD / "ML_data" / "ML_models_saves" / model_name
 model = pickle.load(open(modelpath,"rb"))
 predictor(g, model)
 
 
 # Get graph features, labels and masks
-features = g.ndata['feat']
+features = g.ndata['feat'].float()
 labels = g.ndata['label']
-train_mask = g.ndata['train_mask']
-val_mask = g.ndata['val_mask']
 test_mask = g.ndata['test_mask']
-#
-#model,8,4.pt
-model = pickle.load(open(os.path.join("..\\ML_data\\ML_models_saves\\model,2048,1024,512,256,128,64,32val_split0.pt"), "rb"))
+
+
+
+
+
+#model = pickle.load(open(os.path.join("..\\ML_data\\ML_models_saves\\model,2048,1024,512,256,128,64,32val_split0.pt"), "rb"))
 # evaluation mode
 model.eval()
 # Forward
@@ -231,6 +235,14 @@ print("f1_score on whole set: " + str(f1_score(labels_bool, pred_bool)))
 cm = confusion_matrix(labels_bool, pred_bool)
 cmn = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 print("normalized confusion matrix:\n" + str(cmn))
+import seaborn as sns
+ax= plt.subplot()
+sns.heatmap(cm, annot=True, fmt='g', ax=ax)
+ax.set_xlabel('Predicted labels')
+ax.set_ylabel('True labels')
+ax.set_title('Confusion Matrix')
+ax.xaxis.set_ticklabels(['False', 'True'])
+ax.yaxis.set_ticklabels(['False', 'True'])
 
 
 for key in name_position_dict.keys():
@@ -238,7 +250,7 @@ for key in name_position_dict.keys():
     start = value[0]
     end = value[1]
     name = value[2]
-    if value[3] == 2:  # testing
+    if value[3] == 2:  # these values are the test set
         temp_pred_df = pred_df.loc[start:end, :]
         temp_labels_df = labels_df.loc[start:end, :]
         temp_test_mask_df = test_mask_df.loc[start:end, :]
@@ -250,4 +262,6 @@ for key in name_position_dict.keys():
         # print("labels:" + str(met_labels[start:end]))
         test_metric = get_metric(pred_tp, labels_tp, test_mask_tp, "mcc")
         testing_metric_list.append(test_metric)
+
+print(testing_metric_list)
 print("test")
