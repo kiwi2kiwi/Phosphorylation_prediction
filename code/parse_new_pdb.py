@@ -126,7 +126,9 @@ clean_file = WD / "phos_info" / "info_on_new_pdb_phos.txt"
 iop = open(clean_file, 'w')
 
 # TODO change the name of the file you want to predict and also specify the chain and model
-modifypdb("2h6o.pdb", "A", 0)
+modifypdb("2h6o.pdb", main_chain="A", modelid=0)
+
+
 print("done")
 
 

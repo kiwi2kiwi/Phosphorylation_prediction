@@ -45,18 +45,8 @@ PREDICTION_EMBS = {}
 for file in os.listdir(prediction_embs):
     PREDICTION_EMBS[file[:-2]] = pickle.load(open(os.path.join(prediction_embs, file), "rb"))
 
-print(f"Training embeddings loaded : {len(PREDICTION_EMBS)} items")
-# "In[35]:"
-# import tensorflow as tf
-# total_feats = 0
-# graph_number = 0
-# train_graph_number = 0
-# train_graph_feats = 0
-# val_graph_number = 0
-# val_graph_feats = 0
-# test_graph_number = 0
-# test_graph_feats = 0
-# graph_lengths = {}
+#print(f"Training embeddings loaded : {len(PREDICTION_EMBS)} items")
+
 def create_dgl_graph(A, feats, labels, train, val, test, prot):
     g = dgl.from_scipy(A)
     feats = feats.reset_index(drop=True)
@@ -108,7 +98,7 @@ create = True
 embeddings = "glove"
 
 onehot = False
-print("Creating training set...")
+#print("Creating training set...")
 g = create_dgl_data(PREDICTION_GRAPHS, PREDICTION_EMBS, train=0, val=0, test=1, onehot=onehot, mode=embeddings)
 
 
@@ -155,7 +145,6 @@ def predictor(g, model):
     #usable = usable.iloc[:,0]
     boolean_list_negative = usable==False
     pred[boolean_list_negative] = 0
-    print((torch.tensor([1, 2, 1, 2]) == 2).nonzero(as_tuple=True)[0].detach().numpy())
     with open(WD / "phos_info" / "info_on_new_pdb_phos.txt", "r") as iop:
         line = iop.readline()
         line = line.split()
@@ -171,22 +160,16 @@ def predictor(g, model):
     to_select_negative = ava[(pred[result_possibles] == 1)].detach().numpy()
     indices_sel = "[" + ",".join(map(str, map(int, to_select))) + "]"
     indices_sel_negative = "[" + ",".join(map(str, map(int, to_select_negative))) + "]"
-    print("load protein with name: " + name)
-    print("the red residues are predicted to be phosphorylated, and the blue ones are unphosphorylated THR, TYR, SER")
+    print("the green residues are predicted to be phosphorylated, and the red ones are unphosphorylated THR, TYR, SER")
     print("load the protein and paste this into the pymol console to see the predicted residues")
     print("show surface")
     # print("show cartoon")
     print("remove solvent")
     print("color white")
-    print("select resi " + indices_tp)
+    print("select resi " + indices_sel)
     print("color green, sele")
-    print("select resi " + indices_tn)
+    print("select resi " + indices_sel_negative)
     print("color red, sele")
-    print("select resi " + indices_fp)
-    print("color cyan, sele")
-    print("select resi " + indices_fn)
-    print("color purple, sele")
-    print("select resi")
     print(pred)
 
 
@@ -196,7 +179,6 @@ import GNN_architect
 
 dgl.seed(1)
 # model,8,4.pt
-model_name = "model,16ranseed_1val_split1glove.pt"
 model_name = "model,1024ranseed_2val_split1glove.pt"
 #model_name = "model,8val_split0.pt"
 modelpath = WD / "ML_data" / "ML_models_saves" / model_name
