@@ -109,7 +109,7 @@ def get_sequence(residues):
 def is_ligand(res):
     return res.get_full_id()[3][0] not in ["W", " "]
 
-
+# TODO change lines 125 and 126 to switch between contact and distance map
 # Check if 2 residues are connected  (2 residues are connected if their alpha carbon atoms are close enough)
 # recieves a numpy 2D array (A), unpacked residue list of the residues, and a threshold
 def are_connected(A, residues, th):
@@ -191,6 +191,7 @@ def get_graph(data_folder, file):
     n_res = len(residues)
     A = np.zeros((n_res, n_res))
     global threshold
+    # TODO change the threshold here
     A = are_connected(A, residues, th=6)  # Threshold = 6 Angstroms
     labels = np.zeros((n_res,1))
 
@@ -213,7 +214,7 @@ embedding_dictionary = {}
 embedding_source = "external"
 embedding_source = "internal"
 
-# TODO TUTORIAL HERE
+# TODO import external embeddings here
 # create a file that looks like the bert embedder output. This can be used as custom embeddings
 if embedding_source == "external":
     data = np.load(WD / "ML_data" / "external_embeddigs" / "phospho_bert_emb.npy", allow_pickle=True)
