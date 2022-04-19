@@ -11,7 +11,7 @@ import os
 
 
 
-WD = Path(__file__).resolve().parents[1]
+WD = Path().resolve().parents[0]
 
 def remove_except_CA(structure, true_chain):
     for model in structure:
@@ -126,7 +126,7 @@ clean_file = WD / "phos_info" / "info_on_new_pdb_phos.txt"
 iop = open(clean_file, 'w')
 
 # TODO change the name of the file you want to predict and also specify the chain and model
-modifypdb("2h6o.pdb", main_chain="A", modelid=0)
+modifypdb("7zez.pdb", main_chain="A", modelid=0)
 
 
 print("done")

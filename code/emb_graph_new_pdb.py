@@ -46,6 +46,8 @@ from Bio import SeqIO
 # from bio_embeddings.embed.seqvec_embedder import SeqVecEmbedder
 
 # # Glove working
+import nltk
+nltk.download('omw-1.4')
 from bio_embeddings.embed.glove_embedder import GloveEmbedder
 
 # # Word2Vec
@@ -174,7 +176,7 @@ def get_graph(data_folder, file):
 
 
 from pathlib import Path
-WD = Path(__file__).resolve().parents[1]
+WD = Path().resolve().parents[0]
 import h5py
 embedding_dictionary = {}
 embedding_source = "external"
@@ -223,7 +225,7 @@ def get_embeddings(data_folder, file, emb_name):
 # yannick
 import pickle as pkl
 from pathlib import Path
-WD = Path(__file__).resolve().parents[1]
+WD = Path().resolve().parents[0]
 
 label_dict = {}
 with open(WD / "phos_info" / "info_on_new_pdb_phos.txt","r") as iop:
