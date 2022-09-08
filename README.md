@@ -9,7 +9,7 @@ clone the github repo\
 Download the Anaconda Navigator\
 go to the environments tab and import the environment.yml\ 
 start the anaconda command line and run this command:\
-pip install -U "bio-embeddings[allennlp] @ git+https://github.com/sacdallago/bio_embeddings.git"\
+pip install -U "bio-embeddings[allennlp] @ git+https://github.com/sacdallago/bio_embeddings.git"
 
 
 
