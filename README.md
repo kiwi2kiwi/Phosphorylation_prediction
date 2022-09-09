@@ -2,6 +2,7 @@
 Bioinformatics research project at Charles University. Supervisors are Marian Novotny and David Hoksza with help from Hamza Gamouh and Michael Heinzinger.
 I'm trying to predict phosphorylated residues from sequence and structure data
 Prediction algorithm is a GNN
+The data analysis part was already done in a previous master thesis from another student.
 
 
 Setup:
